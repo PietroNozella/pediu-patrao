@@ -1,5 +1,6 @@
 package com.umc.pediupatrao.service;
 
+import com.umc.pediupatrao.entity.PerfilUsuario;
 import com.umc.pediupatrao.entity.Usuario;
 import com.umc.pediupatrao.repository.UsuarioRepository;
 import org.springframework.http.HttpStatus;
@@ -42,8 +43,9 @@ public class UsuarioService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Senha obrigatoria");
         }
         if (usuario.getRole() == null || usuario.getRole().isBlank()) {
-            usuario.setRole("USER");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Perfil obrigatorio");
         }
+        usuario.setRole(validarPerfil(usuario.getRole()));
         usuario.setPassword(passwordEncoder.encode(usuario.getPassword()));
         return usuarioRepository.save(usuario);
     }
@@ -71,11 +73,19 @@ public class UsuarioService {
             existente.setUsername(usuarioAtualizado.getUsername());
         }
         if (usuarioAtualizado.getRole() != null && !usuarioAtualizado.getRole().isBlank()) {
-            existente.setRole(usuarioAtualizado.getRole());
+            existente.setRole(validarPerfil(usuarioAtualizado.getRole()));
         }
         if (usuarioAtualizado.getPassword() != null && !usuarioAtualizado.getPassword().isBlank()) {
             existente.setPassword(passwordEncoder.encode(usuarioAtualizado.getPassword()));
         }
         return usuarioRepository.save(existente);
+    }
+
+    private String validarPerfil(String role) {
+        try {
+            return PerfilUsuario.validar(role).name();
+        } catch (IllegalArgumentException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage(), e);
+        }
     }
 }

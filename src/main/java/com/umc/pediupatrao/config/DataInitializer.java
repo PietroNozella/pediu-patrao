@@ -20,6 +20,12 @@ public class DataInitializer {
     @Bean
     CommandLineRunner initDatabase(UsuarioRepository repo, PasswordEncoder encoder) {
         return args -> {
+            repo.findAll().stream()
+                    .filter(u -> "USER".equals(u.getRole()))
+                    .forEach(u -> {
+                        u.setRole("ATENDENTE");
+                        repo.save(u);
+                    });
             if (repo.findByUsername(adminUsername).isEmpty()) {
                 Usuario user = new Usuario();
                 user.setUsername(adminUsername);
