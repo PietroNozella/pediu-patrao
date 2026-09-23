@@ -18,6 +18,7 @@ public class PedidoService {
     }
 
     public Pedido criarPedido(Pedido pedido) {
+        validarCancelamentoIndevido(pedido.getStatus());
         if (pedido.getStatus() == null || pedido.getStatus().isBlank()) {
             pedido.setStatus("NOVO");
         }
@@ -29,9 +30,17 @@ public class PedidoService {
     }
 
     public Pedido atualizarStatus(String id, String status) {
+        validarCancelamentoIndevido(status);
         Pedido pedido = pedidoRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Pedido nao encontrado"));
         pedido.setStatus(status);
         return pedidoRepository.save(pedido);
+    }
+
+    private void validarCancelamentoIndevido(String status) {
+        if (status != null && "CANCELADO".equalsIgnoreCase(status.trim())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Cancelamento exige operacao propria com justificativa");
+        }
     }
 }

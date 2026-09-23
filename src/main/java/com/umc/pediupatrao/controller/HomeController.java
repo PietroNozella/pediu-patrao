@@ -12,6 +12,7 @@ import com.umc.pediupatrao.service.ProdutoService;
 import com.umc.pediupatrao.service.UsuarioService;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -52,6 +53,7 @@ public class HomeController {
     // USUÁRIOS
     // ========================
     @GetMapping("/usuarios")
+    @PreAuthorize("hasRole('ADMIN')")
     public String listarUsuarios(Model model) {
         List<Usuario> usuarios = usuarioService.listarTodos();
         model.addAttribute("usuarios", usuarios);
@@ -61,6 +63,7 @@ public class HomeController {
     }
 
     @GetMapping("/usuarios/novo")
+    @PreAuthorize("hasRole('ADMIN')")
     public String novoUsuarioForm(Model model) {
         model.addAttribute("usuario", new Usuario());
         model.addAttribute("content", "usuarios/form :: content");
@@ -68,6 +71,7 @@ public class HomeController {
     }
 
     @GetMapping("/usuarios/editar/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public String editarUsuarioForm(@PathVariable String id, Model model,
             RedirectAttributes redirectAttributes) {
         boolean encontrado = usuarioService.buscarPorId(id).map(u -> {
@@ -86,6 +90,7 @@ public class HomeController {
     }
 
     @PostMapping("/usuarios/salvar")
+    @PreAuthorize("hasRole('ADMIN')")
     public String salvarUsuario(@ModelAttribute Usuario usuario,
             RedirectAttributes redirectAttributes) {
         usuarioService.salvarUsuario(usuario);
@@ -94,6 +99,7 @@ public class HomeController {
     }
 
     @PostMapping("/usuarios/editar/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public String atualizarUsuario(@PathVariable String id,
             @ModelAttribute Usuario usuario,
             RedirectAttributes redirectAttributes) {
@@ -103,6 +109,7 @@ public class HomeController {
     }
 
     @PostMapping("/usuarios/deletar/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public String deletarUsuario(@PathVariable String id,
             RedirectAttributes redirectAttributes) {
         usuarioService.deletarUsuario(id);
@@ -114,6 +121,7 @@ public class HomeController {
     // PEDIDOS
     // ========================
     @GetMapping("/pedidos")
+    @PreAuthorize("hasAnyRole('ADMIN', 'GERENTE', 'ATENDENTE')")
     public String pedidos(Model model) {
         List<Pedido> pedidos = pedidoService.listarPedidos();
         model.addAttribute("pedidos", pedidos);
@@ -138,6 +146,7 @@ public class HomeController {
     // CLIENTES
     // ========================
     @GetMapping("/clientes")
+    @PreAuthorize("hasAnyRole('GERENTE', 'ATENDENTE')")
     public String clientes(Model model) {
         List<Cliente> clientes = clienteService.listarClientes();
         model.addAttribute("clientes", clientes);
@@ -147,6 +156,7 @@ public class HomeController {
     }
 
     @GetMapping("/clientes/novo")
+    @PreAuthorize("hasRole('ATENDENTE')")
     public String novoClienteForm(Model model) {
         model.addAttribute("cliente", new Cliente());
         model.addAttribute("content", "clientes/form :: content");
@@ -154,6 +164,7 @@ public class HomeController {
     }
 
     @PostMapping("/clientes/salvar")
+    @PreAuthorize("hasRole('ATENDENTE')")
     public String salvarCliente(@ModelAttribute Cliente cliente,
             RedirectAttributes redirectAttributes) {
         clienteService.salvar(cliente);
@@ -162,6 +173,7 @@ public class HomeController {
     }
 
     @GetMapping("/clientes/editar/{id}")
+    @PreAuthorize("hasRole('ATENDENTE')")
     public String editarClienteForm(@PathVariable String id, Model model,
             RedirectAttributes redirectAttributes) {
         boolean encontrado = clienteService.buscarPorId(id).map(c -> {
@@ -179,6 +191,7 @@ public class HomeController {
     }
 
     @PostMapping("/clientes/editar/{id}")
+    @PreAuthorize("hasRole('ATENDENTE')")
     public String atualizarCliente(@PathVariable String id,
             @ModelAttribute Cliente cliente,
             RedirectAttributes redirectAttributes) {

@@ -13,7 +13,7 @@ public class Usuario {
     private String username;
     @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     private String password;
-    private String role = "USER";
+    private String role;
 
     public String getId() {
         return id;
