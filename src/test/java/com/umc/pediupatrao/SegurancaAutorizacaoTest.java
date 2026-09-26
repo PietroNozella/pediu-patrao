@@ -36,6 +36,7 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.not;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -357,6 +358,34 @@ class SegurancaAutorizacaoTest {
                 .andExpect(content().string(containsString("01/01/2026")));
     }
 
+    @Test
+    @WithMockUser(roles = "ATENDENTE")
+    void atendenteVisualizaAcaoPermitidaParaOStatusAtual() throws Exception {
+        Pedido pedido = new Pedido();
+        pedido.setId("pedido-1");
+        pedido.setStatus("RECEBIDO");
+        when(pedidoRepo.findAll()).thenReturn(List.of(pedido));
+
+        mvc.perform(get("/pedidos"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("Iniciar preparo")))
+                .andExpect(content().string(containsString("data-status-destino=\"EM_PREPARACAO\"")));
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void adminVisualizaPedidosSemControlesDeTransicao() throws Exception {
+        Pedido pedido = new Pedido();
+        pedido.setId("pedido-1");
+        pedido.setStatus("RECEBIDO");
+        when(pedidoRepo.findAll()).thenReturn(List.of(pedido));
+
+        mvc.perform(get("/pedidos"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("Somente leitura")))
+                .andExpect(content().string(not(containsString("data-status-destino=\"EM_PREPARACAO\""))));
+    }
+
     private void mockCatalogoOk() {
         Cliente cliente = new Cliente();
         cliente.setId("c1");
@@ -495,7 +524,7 @@ class SegurancaAutorizacaoTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(pedidoValidoJson()))
                 .andExpect(status().isForbidden());
-        mvc.perform(put("/api/pedidos/1/status").with(csrf()).param("status", "EM_PREPARO"))
+        mvc.perform(put("/api/pedidos/1/status").with(csrf()).param("status", "EM_PREPARACAO"))
                 .andExpect(status().isForbidden());
     }
 
@@ -511,7 +540,7 @@ class SegurancaAutorizacaoTest {
     private void mockStatusOk() {
         Pedido pedido = new Pedido();
         pedido.setId("1");
-        pedido.setStatus("NOVO");
+        pedido.setStatus("RECEBIDO");
         when(pedidoRepo.findById("1")).thenReturn(Optional.of(pedido));
         when(pedidoRepo.save(any())).thenAnswer(i -> i.getArgument(0));
     }
@@ -520,7 +549,7 @@ class SegurancaAutorizacaoTest {
     @WithMockUser(roles = "GERENTE")
     void gerenteAtualizaStatusComum() throws Exception {
         mockStatusOk();
-        mvc.perform(put("/api/pedidos/1/status").with(csrf()).param("status", "EM_PREPARO"))
+        mvc.perform(put("/api/pedidos/1/status").with(csrf()).param("status", "EM_PREPARACAO"))
                 .andExpect(status().isOk());
     }
 
@@ -528,8 +557,48 @@ class SegurancaAutorizacaoTest {
     @WithMockUser(roles = "ATENDENTE")
     void atendenteAtualizaStatusComum() throws Exception {
         mockStatusOk();
-        mvc.perform(put("/api/pedidos/1/status").with(csrf()).param("status", "EM_PREPARO"))
+        mvc.perform(put("/api/pedidos/1/status").with(csrf()).param("status", "EM_PREPARACAO"))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    @WithMockUser(username = "gerente01", roles = "GERENTE")
+    void saidaRegistraUsuarioAutenticado() throws Exception {
+        Pedido pedido = new Pedido();
+        pedido.setId("1");
+        pedido.setStatus("PRONTO");
+        when(pedidoRepo.findById("1")).thenReturn(Optional.of(pedido));
+        when(pedidoRepo.save(any())).thenAnswer(i -> i.getArgument(0));
+
+        mvc.perform(put("/api/pedidos/1/status").with(csrf()).param("status", "RETIRADO"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("RETIRADO"))
+                .andExpect(jsonPath("$.responsavelSaida").value("gerente01"))
+                .andExpect(jsonPath("$.dataHoraSaida").isNotEmpty())
+                .andExpect(jsonPath("$.version").doesNotExist());
+    }
+
+    @Test
+    @WithMockUser(roles = "ATENDENTE")
+    void statusInexistenteRecebe400() throws Exception {
+        mvc.perform(put("/api/pedidos/1/status").with(csrf()).param("status", "INEXISTENTE"))
+                .andExpect(status().isBadRequest());
+
+        verify(pedidoRepo, never()).save(any());
+    }
+
+    @Test
+    @WithMockUser(roles = "ATENDENTE")
+    void saltoDeStatusRecebe409() throws Exception {
+        Pedido pedido = new Pedido();
+        pedido.setId("1");
+        pedido.setStatus("RECEBIDO");
+        when(pedidoRepo.findById("1")).thenReturn(Optional.of(pedido));
+
+        mvc.perform(put("/api/pedidos/1/status").with(csrf()).param("status", "FINALIZADO"))
+                .andExpect(status().isConflict());
+
+        verify(pedidoRepo, never()).save(any());
     }
 
     @Test

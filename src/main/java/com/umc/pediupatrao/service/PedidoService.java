@@ -5,9 +5,11 @@ import com.umc.pediupatrao.dto.ItemPedidoRequest;
 import com.umc.pediupatrao.entity.ItemPedido;
 import com.umc.pediupatrao.entity.Pedido;
 import com.umc.pediupatrao.entity.Produto;
+import com.umc.pediupatrao.entity.StatusPedido;
 import com.umc.pediupatrao.repository.ClienteRepository;
 import com.umc.pediupatrao.repository.PedidoRepository;
 import com.umc.pediupatrao.repository.ProdutoRepository;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
@@ -62,7 +64,7 @@ public class PedidoService {
         pedido.setValorTotal(subtotalPedido);
         pedido.setResponsavelRegistro(username);
         pedido.setDataHoraEntrada(Instant.now());
-        pedido.setStatus("RECEBIDO");
+        pedido.setStatus(StatusPedido.RECEBIDO.name());
         return pedidoRepository.save(pedido);
     }
 
@@ -95,18 +97,55 @@ public class PedidoService {
         return pedidoRepository.findAll();
     }
 
-    public Pedido atualizarStatus(String id, String status) {
-        validarCancelamentoIndevido(status);
+    public Pedido atualizarStatus(String id, StatusPedido novoStatus, String username) {
+        validarResponsavel(username);
+        validarCancelamentoIndevido(novoStatus);
         Pedido pedido = pedidoRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Pedido nao encontrado"));
-        pedido.setStatus(status);
-        return pedidoRepository.save(pedido);
+
+        StatusPedido statusAtual = converterStatusAtual(pedido.getStatus());
+        if (!statusAtual.permiteTransicaoPara(novoStatus)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Transicao de " + statusAtual + " para " + novoStatus + " nao permitida");
+        }
+
+        if (novoStatus.registraSaida()) {
+            pedido.setDataHoraSaida(Instant.now());
+            pedido.setResponsavelSaida(username);
+        }
+
+        pedido.setStatus(novoStatus.name());
+        try {
+            return pedidoRepository.save(pedido);
+        } catch (OptimisticLockingFailureException exception) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Pedido alterado por outra operacao; recarregue e tente novamente", exception);
+        }
     }
 
-    private void validarCancelamentoIndevido(String status) {
-        if (status != null && "CANCELADO".equalsIgnoreCase(status.trim())) {
+    private void validarResponsavel(String username) {
+        if (username == null || username.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Responsavel autenticado obrigatorio");
+        }
+    }
+
+    private void validarCancelamentoIndevido(StatusPedido status) {
+        if (status == StatusPedido.CANCELADO) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "Cancelamento exige operacao propria com justificativa");
+        }
+    }
+
+    private StatusPedido converterStatusAtual(String status) {
+        if (status == null || status.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Pedido sem status valido");
+        }
+
+        try {
+            return StatusPedido.valueOf(status.trim());
+        } catch (IllegalArgumentException exception) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Status atual do pedido nao reconhecido", exception);
         }
     }
 }

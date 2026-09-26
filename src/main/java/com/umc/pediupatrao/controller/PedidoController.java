@@ -2,6 +2,7 @@ package com.umc.pediupatrao.controller;
 
 import com.umc.pediupatrao.dto.CriarPedidoRequest;
 import com.umc.pediupatrao.entity.Pedido;
+import com.umc.pediupatrao.entity.StatusPedido;
 import com.umc.pediupatrao.service.PedidoService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -38,7 +39,10 @@ public class PedidoController {
 
     @PutMapping("/{id}/status")
     @PreAuthorize("hasAnyRole('GERENTE', 'ATENDENTE')")
-    public ResponseEntity<Pedido> atualizarStatus(@PathVariable String id, @RequestParam String status) {
-        return ResponseEntity.ok(pedidoService.atualizarStatus(id, status));
+    public ResponseEntity<Pedido> atualizarStatus(@PathVariable String id,
+                                                   @RequestParam StatusPedido status,
+                                                   Principal principal) {
+        String username = principal == null ? null : principal.getName();
+        return ResponseEntity.ok(pedidoService.atualizarStatus(id, status, username));
     }
 }
