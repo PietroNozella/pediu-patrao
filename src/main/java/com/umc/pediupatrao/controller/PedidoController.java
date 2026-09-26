@@ -1,12 +1,15 @@
 package com.umc.pediupatrao.controller;
 
+import com.umc.pediupatrao.dto.CriarPedidoRequest;
 import com.umc.pediupatrao.entity.Pedido;
 import com.umc.pediupatrao.service.PedidoService;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.security.Principal;
 import java.util.List;
 
 @RestController
@@ -21,8 +24,10 @@ public class PedidoController {
 
     @PostMapping
     @PreAuthorize("hasRole('ATENDENTE')")
-    public ResponseEntity<Pedido> criarPedido(@RequestBody Pedido pedido) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(pedidoService.criarPedido(pedido));
+    public ResponseEntity<Pedido> criarPedido(@Valid @RequestBody CriarPedidoRequest request,
+                                              Principal principal) {
+        String username = principal == null ? null : principal.getName();
+        return ResponseEntity.status(HttpStatus.CREATED).body(pedidoService.criarPedido(request, username));
     }
 
     @GetMapping

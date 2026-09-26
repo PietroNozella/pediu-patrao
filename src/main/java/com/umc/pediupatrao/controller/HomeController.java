@@ -130,6 +130,17 @@ public class HomeController {
         return "layout";
     }
 
+    @GetMapping("/pedidos/novo")
+    @PreAuthorize("hasRole('ATENDENTE')")
+    public String novoPedidoForm(Model model) {
+        model.addAttribute("clientes", clienteService.listarClientes());
+        model.addAttribute("produtos", produtoService.listarProdutos().stream()
+                .filter(p -> Boolean.TRUE.equals(p.getAtivo()))
+                .toList());
+        model.addAttribute("content", "pedidos/form :: content");
+        return "layout";
+    }
+
     // ========================
     // PRODUTOS
     // ========================

@@ -5,7 +5,10 @@ import com.umc.pediupatrao.controller.ClienteController;
 import com.umc.pediupatrao.controller.HomeController;
 import com.umc.pediupatrao.controller.PedidoController;
 import com.umc.pediupatrao.controller.UsuarioController;
+import com.umc.pediupatrao.entity.Cliente;
+import com.umc.pediupatrao.entity.ItemPedido;
 import com.umc.pediupatrao.entity.Pedido;
+import com.umc.pediupatrao.entity.Produto;
 import com.umc.pediupatrao.entity.Usuario;
 import com.umc.pediupatrao.repository.ClienteRepository;
 import com.umc.pediupatrao.repository.PedidoRepository;
@@ -17,6 +20,7 @@ import com.umc.pediupatrao.service.ProdutoService;
 import com.umc.pediupatrao.service.UsuarioDetailsService;
 import com.umc.pediupatrao.service.UsuarioService;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
@@ -25,9 +29,13 @@ import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -37,6 +45,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrlPattern;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -325,22 +335,157 @@ class SegurancaAutorizacaoTest {
 
     @Test
     @WithMockUser(roles = "ATENDENTE")
-    void atendenteRegistraPedido() throws Exception {
+    void atendenteVisualizaPedidoComItensEValores() throws Exception {
+        Pedido pedido = new Pedido();
+        pedido.setId("pedido-1");
+        pedido.setClienteId("c1");
+        pedido.setItens(List.of(new ItemPedido(
+                "p1", "Mussarela", 2, new BigDecimal("40.00"), new BigDecimal("80.00"))));
+        pedido.setValorSubtotal(new BigDecimal("80.00"));
+        pedido.setValorDesconto(BigDecimal.ZERO);
+        pedido.setValorTotal(new BigDecimal("80.00"));
+        pedido.setResponsavelRegistro("atendente01");
+        pedido.setDataHoraEntrada(Instant.parse("2026-01-01T15:00:00Z"));
+        pedido.setStatus("RECEBIDO");
+        when(pedidoRepo.findAll()).thenReturn(List.of(pedido));
+
+        mvc.perform(get("/pedidos"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("2x Mussarela")))
+                .andExpect(content().string(containsString("R$ 80,00")))
+                .andExpect(content().string(containsString("atendente01")))
+                .andExpect(content().string(containsString("01/01/2026")));
+    }
+
+    private void mockCatalogoOk() {
+        Cliente cliente = new Cliente();
+        cliente.setId("c1");
+        when(clienteRepo.findById("c1")).thenReturn(Optional.of(cliente));
+        Produto produto = new Produto();
+        produto.setId("p1");
+        produto.setNome("Mussarela");
+        produto.setPreco(40.0);
+        produto.setAtivo(true);
+        when(produtoRepo.findById("p1")).thenReturn(Optional.of(produto));
         when(pedidoRepo.save(any())).thenAnswer(i -> i.getArgument(0));
-        mvc.perform(post("/api/pedidos").with(csrf())
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"clienteId\":\"c1\",\"tipoPizza\":\"mussarela\",\"quantidade\":1}"))
-                .andExpect(status().isCreated());
+    }
+
+    private String pedidoValidoJson() {
+        return "{\"clienteId\":\"c1\",\"itens\":[{\"produtoId\":\"p1\",\"quantidade\":2}]}";
     }
 
     @Test
     @WithMockUser(roles = "ATENDENTE")
-    void atendenteNaoRegistraPedidoJaCancelado() throws Exception {
+    void atendenteRegistraPedido() throws Exception {
+        mockCatalogoOk();
         mvc.perform(post("/api/pedidos").with(csrf())
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"clienteId\":\"c1\",\"status\":\"CANCELADO\"}"))
+                .content(pedidoValidoJson()))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.status").value("RECEBIDO"))
+                .andExpect(jsonPath("$.responsavelRegistro").value("user"))
+                .andExpect(jsonPath("$.valorTotal").value(80.0))
+                .andExpect(jsonPath("$.valorDesconto").value(0.0));
+    }
+
+    @Test
+    @WithMockUser(roles = "ATENDENTE")
+    void valoresEnviadosPeloClienteSaoIgnorados() throws Exception {
+        mockCatalogoOk();
+        mvc.perform(post("/api/pedidos").with(csrf())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"clienteId\":\"c1\",\"itens\":[{\"produtoId\":\"p1\",\"quantidade\":2}],"
+                        + "\"valorTotal\":0.01,\"valorSubtotal\":0.01,\"valorDesconto\":99.0,"
+                        + "\"responsavelRegistro\":\"admin\",\"status\":\"CANCELADO\","
+                        + "\"dataHoraEntrada\":\"2020-01-01T00:00:00Z\"}"))
+                .andExpect(status().isCreated());
+
+        ArgumentCaptor<Pedido> captor = ArgumentCaptor.forClass(Pedido.class);
+        verify(pedidoRepo).save(captor.capture());
+        Pedido salvo = captor.getValue();
+        assertEquals("RECEBIDO", salvo.getStatus());
+        assertEquals("user", salvo.getResponsavelRegistro());
+        assertEquals(0, salvo.getValorTotal().compareTo(new BigDecimal("80.00")));
+        assertEquals(0, salvo.getValorDesconto().compareTo(BigDecimal.ZERO));
+    }
+
+    @Test
+    @WithMockUser(roles = "ATENDENTE")
+    void payloadInvalidoRecebe400() throws Exception {
+        mvc.perform(post("/api/pedidos").with(csrf())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"clienteId\":\"c1\",\"itens\":[]}"))
+                .andExpect(status().isBadRequest());
+        mvc.perform(post("/api/pedidos").with(csrf())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"clienteId\":\"c1\",\"itens\":[{\"produtoId\":\"p1\",\"quantidade\":0}]}"))
                 .andExpect(status().isBadRequest());
         verify(pedidoRepo, never()).save(any());
+    }
+
+    @Test
+    @WithMockUser(roles = "ATENDENTE")
+    void quantidadeFracionariaRecebe400() throws Exception {
+        mvc.perform(post("/api/pedidos").with(csrf())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"clienteId\":\"c1\",\"itens\":[{\"produtoId\":\"p1\",\"quantidade\":1.5}]}"))
+                .andExpect(status().isBadRequest());
+
+        verify(pedidoRepo, never()).save(any());
+    }
+
+    @Test
+    @WithMockUser(roles = "ATENDENTE")
+    void clienteInexistenteRecebe404() throws Exception {
+        when(clienteRepo.findById("fantasma")).thenReturn(Optional.empty());
+        mvc.perform(post("/api/pedidos").with(csrf())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"clienteId\":\"fantasma\",\"itens\":[{\"produtoId\":\"p1\",\"quantidade\":1}]}"))
+                .andExpect(status().isNotFound());
+        verify(pedidoRepo, never()).save(any());
+    }
+
+    @Test
+    @WithMockUser(roles = "ATENDENTE")
+    void produtoInexistenteRecebe404() throws Exception {
+        Cliente cliente = new Cliente();
+        cliente.setId("c1");
+        when(clienteRepo.findById("c1")).thenReturn(Optional.of(cliente));
+        when(produtoRepo.findById("fantasma")).thenReturn(Optional.empty());
+        mvc.perform(post("/api/pedidos").with(csrf())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"clienteId\":\"c1\",\"itens\":[{\"produtoId\":\"fantasma\",\"quantidade\":1}]}"))
+                .andExpect(status().isNotFound());
+        verify(pedidoRepo, never()).save(any());
+    }
+
+    @Test
+    @WithMockUser(roles = "ATENDENTE")
+    void postPedidosSemCsrfRecebe403() throws Exception {
+        mvc.perform(post("/api/pedidos")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(pedidoValidoJson()))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(roles = "ATENDENTE")
+    void atendenteAcessaNovoPedidoForm() throws Exception {
+        when(clienteRepo.findAll()).thenReturn(List.of());
+        when(produtoRepo.findAll()).thenReturn(List.of());
+        mvc.perform(get("/pedidos/novo")).andExpect(status().isOk());
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void adminNaoAcessaNovoPedidoForm() throws Exception {
+        mvc.perform(get("/pedidos/novo")).andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(roles = "GERENTE")
+    void gerenteNaoAcessaNovoPedidoForm() throws Exception {
+        mvc.perform(get("/pedidos/novo")).andExpect(status().isForbidden());
     }
 
     @Test
@@ -348,7 +493,7 @@ class SegurancaAutorizacaoTest {
     void adminNaoRegistraNemAtualizaPedido() throws Exception {
         mvc.perform(post("/api/pedidos").with(csrf())
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"clienteId\":\"c1\"}"))
+                .content(pedidoValidoJson()))
                 .andExpect(status().isForbidden());
         mvc.perform(put("/api/pedidos/1/status").with(csrf()).param("status", "EM_PREPARO"))
                 .andExpect(status().isForbidden());
@@ -359,7 +504,7 @@ class SegurancaAutorizacaoTest {
     void gerenteNaoRegistraPedido() throws Exception {
         mvc.perform(post("/api/pedidos").with(csrf())
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"clienteId\":\"c1\"}"))
+                .content(pedidoValidoJson()))
                 .andExpect(status().isForbidden());
     }
 
