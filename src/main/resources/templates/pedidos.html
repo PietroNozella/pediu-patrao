@@ -28,6 +28,7 @@
         <span th:text="${erro}"></span>
         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     </div>
+    <div class="alert alert-danger" id="erroStatus" style="display:none;" role="alert"></div>
 
     <!-- Tabela -->
     <div class="card shadow-sm">
@@ -43,13 +44,16 @@
                         <th>Total</th>
                         <th>Responsável</th>
                         <th>Entrada</th>
+                        <th>Responsável saída</th>
+                        <th>Saída</th>
                         <th>Status</th>
+                        <th>Ações</th>
                     </tr>
                 </thead>
                 <tbody>
                     <!-- Lista vazia -->
                     <tr th:if="${#lists.isEmpty(pedidos)}">
-                        <td colspan="9" class="text-center text-muted py-5">
+                        <td colspan="12" class="text-center text-muted py-5">
                             <i class="bi bi-inbox fs-3 d-block mb-2"></i>
                             Nenhum pedido encontrado.
                         </td>
@@ -72,12 +76,53 @@
                         <td class="fw-medium" th:text="${pedido.valorTotal != null} ? 'R$ ' + ${#numbers.formatDecimal(pedido.valorTotal, 1, 'POINT', 2, 'COMMA')} : '—'"></td>
                         <td th:text="${pedido.responsavelRegistro ?: '—'}"></td>
                         <td class="small" th:text="${pedido.dataHoraEntrada != null} ? ${#temporals.format(pedido.dataHoraEntrada, 'dd/MM/yyyy HH:mm')} : '—'"></td>
+                        <td th:text="${pedido.responsavelSaida ?: '—'}"></td>
+                        <td class="small" th:text="${pedido.dataHoraSaida != null} ? ${#temporals.format(pedido.dataHoraSaida, 'dd/MM/yyyy HH:mm')} : '—'"></td>
                         <td>
                             <span class="badge"
-                                  th:classappend="${pedido.status == 'ENTREGUE' or pedido.status == 'FINALIZADO'} ? 'bg-success' :
+                                  th:classappend="${pedido.status == 'FINALIZADO'} ? 'bg-success' :
                                                   (${pedido.status == 'CANCELADO'} ? 'bg-danger' :
-                                                  (${pedido.status == 'EM_PREPARO' or pedido.status == 'EM_PREPARAÇÃO'} ? 'bg-warning text-dark' : 'bg-secondary'))"
-                                  th:text="${pedido.status}">
+                                                  (${pedido.status == 'EM_PREPARACAO' or pedido.status == 'PRONTO'} ? 'bg-warning text-dark' : 'bg-secondary'))"
+                                  th:text="${#strings.replace(pedido.status, '_', ' ')}">
+                            </span>
+                        </td>
+                        <td class="text-nowrap">
+                            <div sec:authorize="hasAnyRole('GERENTE', 'ATENDENTE')" class="d-flex flex-wrap gap-1">
+                                <button th:if="${pedido.status == 'RECEBIDO'}"
+                                        type="button" class="btn btn-sm btn-outline-primary btn-transicao"
+                                        th:attr="data-pedido-id=${pedido.id}" data-status-destino="EM_PREPARACAO">
+                                    Iniciar preparo
+                                </button>
+                                <button th:if="${pedido.status == 'EM_PREPARACAO'}"
+                                        type="button" class="btn btn-sm btn-outline-primary btn-transicao"
+                                        th:attr="data-pedido-id=${pedido.id}" data-status-destino="PRONTO">
+                                    Marcar pronto
+                                </button>
+                                <button th:if="${pedido.status == 'PRONTO'}"
+                                        type="button" class="btn btn-sm btn-outline-primary btn-transicao"
+                                        th:attr="data-pedido-id=${pedido.id}" data-status-destino="SAIU_PARA_ENTREGA">
+                                    Saiu para entrega
+                                </button>
+                                <button th:if="${pedido.status == 'PRONTO'}"
+                                        type="button" class="btn btn-sm btn-outline-primary btn-transicao"
+                                        th:attr="data-pedido-id=${pedido.id}" data-status-destino="RETIRADO">
+                                    Retirado
+                                </button>
+                                <button th:if="${pedido.status == 'SAIU_PARA_ENTREGA' or pedido.status == 'RETIRADO'}"
+                                        type="button" class="btn btn-sm btn-outline-success btn-transicao"
+                                        th:attr="data-pedido-id=${pedido.id}" data-status-destino="FINALIZADO">
+                                    Finalizar
+                                </button>
+                                <span th:if="${pedido.status == 'FINALIZADO' or pedido.status == 'CANCELADO'}"
+                                      class="text-muted small">Sem ações</span>
+                                <span th:if="${pedido.status != 'RECEBIDO' and pedido.status != 'EM_PREPARACAO'
+                                              and pedido.status != 'PRONTO' and pedido.status != 'SAIU_PARA_ENTREGA'
+                                              and pedido.status != 'RETIRADO' and pedido.status != 'FINALIZADO'
+                                              and pedido.status != 'CANCELADO'}"
+                                      class="text-danger small">Status inválido</span>
+                            </div>
+                            <span sec:authorize="!hasAnyRole('GERENTE', 'ATENDENTE')" class="text-muted small">
+                                Somente leitura
                             </span>
                         </td>
                     </tr>
@@ -88,6 +133,55 @@
             Total: <strong th:text="${#lists.size(pedidos)}"></strong> pedido(s)
         </div>
     </div>
+
+    <script>
+        const erroStatus = document.getElementById('erroStatus');
+
+        function exibirErroStatus(mensagem) {
+            erroStatus.textContent = mensagem;
+            erroStatus.style.display = 'block';
+        }
+
+        document.querySelectorAll('.btn-transicao').forEach((botao) => {
+            botao.addEventListener('click', async () => {
+                erroStatus.style.display = 'none';
+                const pedidoId = botao.dataset.pedidoId;
+                const statusDestino = botao.dataset.statusDestino;
+                const csrfToken = document.querySelector('meta[name="_csrf"]')?.content;
+                const csrfHeader = document.querySelector('meta[name="_csrf_header"]')?.content;
+                const headers = {};
+                if (csrfToken && csrfHeader) {
+                    headers[csrfHeader] = csrfToken;
+                }
+
+                botao.disabled = true;
+                try {
+                    const response = await fetch(
+                        `/api/pedidos/${encodeURIComponent(pedidoId)}/status?status=${encodeURIComponent(statusDestino)}`,
+                        { method: 'PUT', headers }
+                    );
+
+                    if (response.ok) {
+                        window.location.reload();
+                        return;
+                    }
+
+                    let mensagem = 'Não foi possível atualizar o pedido.';
+                    try {
+                        const body = await response.json();
+                        mensagem = body.detail || body.message || mensagem;
+                    } catch {
+                        // Mantém a mensagem padrão quando a resposta não é JSON.
+                    }
+                    exibirErroStatus(mensagem);
+                } catch {
+                    exibirErroStatus('Erro de rede ao atualizar o pedido.');
+                } finally {
+                    botao.disabled = false;
+                }
+            });
+        });
+    </script>
 
 </div>
 

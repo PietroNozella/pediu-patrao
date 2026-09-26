@@ -1,6 +1,7 @@
 package com.umc.pediupatrao.entity;
 
 import org.springframework.data.annotation.Id;
+import org.springframework.data.annotation.Version;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.math.BigDecimal;
@@ -11,6 +12,8 @@ import java.util.List;
 public class Pedido {
     @Id
     private String id;
+    @Version
+    private Long version;
     private String clienteId;
     private String tipoPizza;
     private String status;
@@ -23,6 +26,8 @@ public class Pedido {
     private BigDecimal valorTotal;
     private String responsavelRegistro;
     private Instant dataHoraEntrada;
+    private String responsavelSaida;
+    private Instant dataHoraSaida;
 
     public String getId() {
         return id;
@@ -128,5 +133,20 @@ public class Pedido {
         this.dataHoraEntrada = dataHoraEntrada;
     }
 
+    public String getResponsavelSaida() {
+        return responsavelSaida;
+    }
+
+    public void setResponsavelSaida(String responsavelSaida) {
+        this.responsavelSaida = responsavelSaida;
+    }
+
+    public Instant getDataHoraSaida() {
+        return dataHoraSaida;
+    }
+
+    public void setDataHoraSaida(Instant dataHoraSaida) {
+        this.dataHoraSaida = dataHoraSaida;
+    }
 
 }
