@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Novo Pedido</title>
+</head>
+<body>
+
+<div th:fragment="content">
+
+    <div class="d-flex align-items-center gap-3 mb-4">
+        <a href="/pedidos" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-left"></i>
+        </a>
+        <h2 class="fw-bold mb-0">
+            <i class="bi bi-bag-plus me-2 text-primary"></i>Novo Pedido
+        </h2>
+    </div>
+
+    <div class="alert alert-danger" id="erroPedido" style="display:none;" role="alert"></div>
+
+    <div class="card shadow-sm" style="max-width: 720px;">
+        <div class="card-body p-4">
+
+            <!-- Cliente -->
+            <div class="mb-4">
+                <label for="cliente" class="form-label fw-medium">
+                    <i class="bi bi-person me-1"></i>Cliente
+                </label>
+                <select id="cliente" class="form-select" required>
+                    <option value="" disabled selected>Selecione um cliente</option>
+                    <option th:each="c : ${clientes}" th:value="${c.id}" th:text="${c.nome}"></option>
+                </select>
+            </div>
+
+            <!-- Itens -->
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <label class="form-label fw-medium mb-0">
+                    <i class="bi bi-list-ul me-1"></i>Itens
+                </label>
+                <button type="button" class="btn btn-sm btn-outline-primary" id="btnAdicionarItem">
+                    <i class="bi bi-plus-lg me-1"></i>Adicionar item
+                </button>
+            </div>
+
+            <div id="itens"></div>
+            <p class="text-muted small mt-2 mb-4">
+                Preços e total são calculados pelo servidor no momento do registro.
+            </p>
+
+            <div class="d-flex gap-2">
+                <button type="button" class="btn btn-primary" id="btnEnviar">
+                    <i class="bi bi-check-lg me-1"></i>Registrar Pedido
+                </button>
+                <a href="/pedidos" class="btn btn-outline-secondary">Cancelar</a>
+            </div>
+
+        </div>
+    </div>
+
+    <script th:inline="javascript">
+        const PRODUTOS = /*[[${produtos}]]*/ [];
+        const itensDiv = document.getElementById('itens');
+        const erroDiv = document.getElementById('erroPedido');
+
+        function mostrarErro(msg) {
+            erroDiv.textContent = msg;
+            erroDiv.style.display = 'block';
+        }
+
+        function limparErro() {
+            erroDiv.textContent = '';
+            erroDiv.style.display = 'none';
+        }
+
+        function adicionarOpcoesProdutos(select) {
+            for (const produto of PRODUTOS) {
+                const option = document.createElement('option');
+                option.value = produto.id;
+                option.textContent = `${produto.nome} — R$ ${Number(produto.preco).toFixed(2)}`;
+                select.appendChild(option);
+            }
+        }
+
+        function adicionarItem() {
+            const row = document.createElement('div');
+            row.className = 'row g-2 align-items-end mb-2 item-linha';
+            row.innerHTML = `
+                <div class="col-7">
+                    <select class="form-select produto" required>
+                        <option value="" disabled selected>Selecione um produto</option>
+                    </select>
+                </div>
+                <div class="col-3">
+                    <input type="number" class="form-control quantidade" min="1" step="1" value="1" required>
+                </div>
+                <div class="col-2">
+                    <button type="button" class="btn btn-outline-danger btn-remover" title="Remover linha">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>`;
+            adicionarOpcoesProdutos(row.querySelector('.produto'));
+            row.querySelector('.btn-remover').addEventListener('click', () => row.remove());
+            itensDiv.appendChild(row);
+        }
+
+        document.getElementById('btnAdicionarItem').addEventListener('click', adicionarItem);
+        adicionarItem();
+
+        const btnEnviar = document.getElementById('btnEnviar');
+        btnEnviar.addEventListener('click', async () => {
+            limparErro();
+            const clienteId = document.getElementById('cliente').value;
+            if (!clienteId) {
+                mostrarErro('Selecione um cliente.');
+                return;
+            }
+            const linhas = document.querySelectorAll('.item-linha');
+            if (linhas.length === 0) {
+                mostrarErro('Adicione ao menos um item ao pedido.');
+                return;
+            }
+            const itens = [];
+            for (const linha of linhas) {
+                const produtoId = linha.querySelector('.produto').value;
+                const quantidade = Number(linha.querySelector('.quantidade').value);
+                if (!produtoId || !Number.isInteger(quantidade) || quantidade < 1) {
+                    mostrarErro('Informe produto e quantidade inteira positiva em todos os itens.');
+                    return;
+                }
+                itens.push({ produtoId, quantidade });
+            }
+            const csrfToken = document.querySelector('meta[name="_csrf"]')?.content;
+            const csrfHeader = document.querySelector('meta[name="_csrf_header"]')?.content;
+            const headers = { 'Content-Type': 'application/json' };
+            if (csrfToken && csrfHeader) {
+                headers[csrfHeader] = csrfToken;
+            }
+            btnEnviar.disabled = true;
+            try {
+                const response = await fetch('/api/pedidos', {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify({ clienteId, itens })
+                });
+                if (response.ok) {
+                    window.location.href = '/pedidos';
+                    return;
+                }
+                mostrarErro(await response.text() || 'Erro ao registrar o pedido.');
+            } catch {
+                mostrarErro('Erro de rede ao registrar o pedido.');
+            }
+            btnEnviar.disabled = false;
+        });
+    </script>
+
+</div>
+
+</body>
+</html>
