@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Auditoria</title>
+</head>
+<body>
+
+<div th:fragment="content">
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="fw-bold mb-0">
+            <i class="bi bi-journal-text me-2 text-primary"></i>Auditoria
+        </h2>
+        <div class="d-flex gap-2">
+            <select id="filtroEntidade" class="form-select form-select-sm" style="width:auto;">
+                <option value="">Todas as entidades</option>
+                <option value="PEDIDO">Pedidos</option>
+                <option value="CLIENTE">Clientes</option>
+            </select>
+            <button type="button" class="btn btn-sm btn-outline-primary" id="btnRecarregar">
+                <i class="bi bi-arrow-clockwise me-1"></i>Atualizar
+            </button>
+        </div>
+    </div>
+
+    <div class="alert alert-danger" id="erroAuditoria" style="display:none;" role="alert"></div>
+
+    <div class="card shadow-sm">
+        <div class="card-body p-0 table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-dark">
+                    <tr>
+                        <th class="ps-4">Data/Hora</th>
+                        <th>Usuário</th>
+                        <th>Perfil</th>
+                        <th>Operação</th>
+                        <th>Entidade</th>
+                        <th>Alterações</th>
+                        <th>Justificativa</th>
+                    </tr>
+                </thead>
+                <tbody id="auditoria-corpo">
+                    <tr>
+                        <td colspan="7" class="text-center text-muted py-5">
+                            <i class="bi bi-inbox fs-3 d-block mb-2"></i>
+                            Carregando registros...
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        const corpo = document.getElementById('auditoria-corpo');
+        const erroBox = document.getElementById('erroAuditoria');
+        const filtroEntidade = document.getElementById('filtroEntidade');
+
+        function formatarDataHora(valor) {
+            if (!valor) return '—';
+            const data = new Date(valor);
+            if (Number.isNaN(data.getTime())) return valor;
+            return data.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+        }
+
+        function criarCelulaTexto(valor, classes = '') {
+            const celula = document.createElement('td');
+            celula.className = classes;
+            celula.textContent = valor ?? '—';
+            return celula;
+        }
+
+        function criarCelulaAlteracoes(registro) {
+            const celula = document.createElement('td');
+            const lista = registro.camposAlterados || [];
+            if (lista.length === 0) {
+                const vazio = document.createElement('span');
+                vazio.className = 'text-muted';
+                vazio.textContent = '—';
+                celula.appendChild(vazio);
+                return celula;
+            }
+
+            const itens = document.createElement('ul');
+            itens.className = 'list-unstyled mb-0 small';
+            lista.forEach((alteracao) => {
+                const item = document.createElement('li');
+                const campo = document.createElement('strong');
+                campo.textContent = alteracao.campo ?? 'campo';
+                item.append(campo, document.createTextNode(
+                    `: ${alteracao.valorAnterior ?? '—'} → ${alteracao.valorNovo ?? '—'}`
+                ));
+                itens.appendChild(item);
+            });
+            celula.appendChild(itens);
+            return celula;
+        }
+
+        function exibirListaVazia() {
+            const linha = document.createElement('tr');
+            const celula = document.createElement('td');
+            celula.colSpan = 7;
+            celula.className = 'text-center text-muted py-5';
+            celula.textContent = 'Nenhum registro encontrado.';
+            linha.appendChild(celula);
+            corpo.replaceChildren(linha);
+        }
+
+        function exibirRegistros(registros) {
+            corpo.replaceChildren();
+            registros.forEach((registro) => {
+                const linha = document.createElement('tr');
+                linha.appendChild(criarCelulaTexto(formatarDataHora(registro.dataHora), 'ps-4 small'));
+                linha.appendChild(criarCelulaTexto(registro.usuario));
+
+                const perfil = document.createElement('td');
+                const badge = document.createElement('span');
+                badge.className = 'badge bg-secondary';
+                badge.textContent = registro.perfil ?? '—';
+                perfil.appendChild(badge);
+                linha.appendChild(perfil);
+
+                linha.appendChild(criarCelulaTexto(registro.tipoOperacao, 'small'));
+
+                const entidade = document.createElement('td');
+                entidade.className = 'small';
+                entidade.append(document.createTextNode(registro.entidade ?? '—'), document.createElement('br'));
+                const entidadeId = document.createElement('span');
+                entidadeId.className = 'text-muted';
+                entidadeId.textContent = registro.entidadeId ?? '';
+                entidade.appendChild(entidadeId);
+                linha.appendChild(entidade);
+
+                linha.appendChild(criarCelulaAlteracoes(registro));
+                linha.appendChild(criarCelulaTexto(registro.justificativa, 'small'));
+                corpo.appendChild(linha);
+            });
+        }
+
+        async function carregarAuditoria() {
+            erroBox.style.display = 'none';
+            const entidade = filtroEntidade.value;
+            const url = entidade ? `/api/auditoria?entidade=${encodeURIComponent(entidade)}` : '/api/auditoria';
+            try {
+                const response = await fetch(url);
+                if (!response.ok) {
+                    throw new Error('Não foi possível carregar a auditoria.');
+                }
+                const registros = await response.json();
+                if (registros.length === 0) {
+                    exibirListaVazia();
+                    return;
+                }
+                exibirRegistros(registros);
+            } catch (e) {
+                erroBox.textContent = e.message;
+                erroBox.style.display = 'block';
+            }
+        }
+
+        document.getElementById('btnRecarregar').addEventListener('click', carregarAuditoria);
+        filtroEntidade.addEventListener('change', carregarAuditoria);
+        carregarAuditoria();
+    </script>
+
+</div>
+
+</body>
+</html>

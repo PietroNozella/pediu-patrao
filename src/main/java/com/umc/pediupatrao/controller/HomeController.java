@@ -177,8 +177,9 @@ public class HomeController {
     @PostMapping("/clientes/salvar")
     @PreAuthorize("hasRole('ATENDENTE')")
     public String salvarCliente(@ModelAttribute Cliente cliente,
-            RedirectAttributes redirectAttributes) {
-        clienteService.salvar(cliente);
+            RedirectAttributes redirectAttributes,
+            java.security.Principal principal) {
+        clienteService.novoCliente(cliente, principal == null ? null : principal.getName());
         redirectAttributes.addFlashAttribute("sucesso", "Cliente criado com sucesso!");
         return "redirect:/clientes";
     }
@@ -205,11 +206,19 @@ public class HomeController {
     @PreAuthorize("hasRole('ATENDENTE')")
     public String atualizarCliente(@PathVariable String id,
             @ModelAttribute Cliente cliente,
-            RedirectAttributes redirectAttributes) {
+            RedirectAttributes redirectAttributes,
+            java.security.Principal principal) {
         cliente.setId(id);
-        clienteService.salvar(cliente);
+        clienteService.salvar(cliente, principal == null ? null : principal.getName());
         redirectAttributes.addFlashAttribute("sucesso", "Cliente atualizado com sucesso!");
         return "redirect:/clientes";
+    }
+
+    @GetMapping("/auditoria")
+    @PreAuthorize("hasAnyRole('ADMIN', 'GERENTE')")
+    public String auditoria(Model model) {
+        model.addAttribute("content", "auditoria :: content");
+        return "layout";
     }
 
     // ========================

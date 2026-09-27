@@ -113,6 +113,20 @@
                                         th:attr="data-pedido-id=${pedido.id}" data-status-destino="FINALIZADO">
                                     Finalizar
                                 </button>
+                            </div>
+                            <div sec:authorize="hasRole('GERENTE')" class="d-flex flex-wrap gap-1 mt-1">
+                                <button th:if="${pedido.status == 'RECEBIDO' or pedido.status == 'EM_PREPARACAO' or pedido.status == 'PRONTO'}"
+                                        type="button" class="btn btn-sm btn-outline-warning btn-desconto"
+                                        th:attr="data-pedido-id=${pedido.id}">
+                                    Desconto
+                                </button>
+                                <button th:if="${pedido.status == 'RECEBIDO' or pedido.status == 'EM_PREPARACAO' or pedido.status == 'PRONTO'}"
+                                        type="button" class="btn btn-sm btn-outline-danger btn-cancelar"
+                                        th:attr="data-pedido-id=${pedido.id}">
+                                    Cancelar
+                                </button>
+                            </div>
+                            <div sec:authorize="hasAnyRole('GERENTE', 'ATENDENTE')">
                                 <span th:if="${pedido.status == 'FINALIZADO' or pedido.status == 'CANCELADO'}"
                                       class="text-muted small">Sem ações</span>
                                 <span th:if="${pedido.status != 'RECEBIDO' and pedido.status != 'EM_PREPARACAO'
@@ -176,6 +190,71 @@
                     exibirErroStatus(mensagem);
                 } catch {
                     exibirErroStatus('Erro de rede ao atualizar o pedido.');
+                } finally {
+                    botao.disabled = false;
+                }
+            });
+        });
+
+        function csrfHeaders(extra = {}) {
+            const csrfToken = document.querySelector('meta[name="_csrf"]')?.content;
+            const csrfHeader = document.querySelector('meta[name="_csrf_header"]')?.content;
+            const headers = { 'Content-Type': 'application/json', ...extra };
+            if (csrfToken && csrfHeader) {
+                headers[csrfHeader] = csrfToken;
+            }
+            return headers;
+        }
+
+        document.querySelectorAll('.btn-desconto').forEach((botao) => {
+            botao.addEventListener('click', async () => {
+                erroStatus.style.display = 'none';
+                const pedidoId = botao.dataset.pedidoId;
+                const entrada = window.prompt('Desconto percentual (0,01 a 20):');
+                if (entrada === null) return;
+                const percentual = Number(String(entrada).replace(',', '.'));
+                if (!Number.isFinite(percentual) || percentual < 0.01 || percentual > 20) {
+                    exibirErroStatus('Desconto deve ser entre 0,01% e 20%.');
+                    return;
+                }
+                botao.disabled = true;
+                try {
+                    const response = await fetch(`/api/pedidos/${encodeURIComponent(pedidoId)}/desconto`,
+                        { method: 'PUT', headers: csrfHeaders(), body: JSON.stringify({ percentual }) });
+                    if (response.ok) {
+                        window.location.reload();
+                        return;
+                    }
+                    exibirErroStatus('Não foi possível aplicar o desconto.');
+                } catch {
+                    exibirErroStatus('Erro de rede ao aplicar desconto.');
+                } finally {
+                    botao.disabled = false;
+                }
+            });
+        });
+
+        document.querySelectorAll('.btn-cancelar').forEach((botao) => {
+            botao.addEventListener('click', async () => {
+                erroStatus.style.display = 'none';
+                const pedidoId = botao.dataset.pedidoId;
+                const justificativa = window.prompt('Justificativa do cancelamento:');
+                if (justificativa === null) return;
+                if (!justificativa.trim()) {
+                    exibirErroStatus('Justificativa obrigatória para cancelamento.');
+                    return;
+                }
+                botao.disabled = true;
+                try {
+                    const response = await fetch(`/api/pedidos/${encodeURIComponent(pedidoId)}/cancelar`,
+                        { method: 'PUT', headers: csrfHeaders(), body: JSON.stringify({ justificativa }) });
+                    if (response.ok) {
+                        window.location.reload();
+                        return;
+                    }
+                    exibirErroStatus('Não foi possível cancelar o pedido.');
+                } catch {
+                    exibirErroStatus('Erro de rede ao cancelar pedido.');
                 } finally {
                     botao.disabled = false;
                 }

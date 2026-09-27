@@ -1,5 +1,7 @@
 package com.umc.pediupatrao.controller;
 
+import com.umc.pediupatrao.dto.AplicarDescontoRequest;
+import com.umc.pediupatrao.dto.CancelarPedidoRequest;
 import com.umc.pediupatrao.dto.CriarPedidoRequest;
 import com.umc.pediupatrao.entity.Pedido;
 import com.umc.pediupatrao.entity.StatusPedido;
@@ -44,5 +46,23 @@ public class PedidoController {
                                                    Principal principal) {
         String username = principal == null ? null : principal.getName();
         return ResponseEntity.ok(pedidoService.atualizarStatus(id, status, username));
+    }
+
+    @PutMapping("/{id}/desconto")
+    @PreAuthorize("hasRole('GERENTE')")
+    public ResponseEntity<Pedido> aplicarDesconto(@PathVariable String id,
+                                                  @Valid @RequestBody AplicarDescontoRequest request,
+                                                  Principal principal) {
+        String username = principal == null ? null : principal.getName();
+        return ResponseEntity.ok(pedidoService.aplicarDesconto(id, request.getPercentual(), username));
+    }
+
+    @PutMapping("/{id}/cancelar")
+    @PreAuthorize("hasRole('GERENTE')")
+    public ResponseEntity<Pedido> cancelarPedido(@PathVariable String id,
+                                                 @Valid @RequestBody CancelarPedidoRequest request,
+                                                 Principal principal) {
+        String username = principal == null ? null : principal.getName();
+        return ResponseEntity.ok(pedidoService.cancelarPedido(id, request.getJustificativa(), username));
     }
 }
