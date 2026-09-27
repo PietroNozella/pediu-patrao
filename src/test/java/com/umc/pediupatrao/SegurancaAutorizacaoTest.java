@@ -1,6 +1,7 @@
 package com.umc.pediupatrao;
 
 import com.umc.pediupatrao.config.SecurityConfig;
+import com.umc.pediupatrao.controller.AuditoriaController;
 import com.umc.pediupatrao.controller.ClienteController;
 import com.umc.pediupatrao.controller.HomeController;
 import com.umc.pediupatrao.controller.PedidoController;
@@ -10,10 +11,12 @@ import com.umc.pediupatrao.entity.ItemPedido;
 import com.umc.pediupatrao.entity.Pedido;
 import com.umc.pediupatrao.entity.Produto;
 import com.umc.pediupatrao.entity.Usuario;
+import com.umc.pediupatrao.repository.AuditoriaRepository;
 import com.umc.pediupatrao.repository.ClienteRepository;
 import com.umc.pediupatrao.repository.PedidoRepository;
 import com.umc.pediupatrao.repository.ProdutoRepository;
 import com.umc.pediupatrao.repository.UsuarioRepository;
+import com.umc.pediupatrao.service.AuditoriaService;
 import com.umc.pediupatrao.service.ClienteService;
 import com.umc.pediupatrao.service.PedidoService;
 import com.umc.pediupatrao.service.ProdutoService;
@@ -51,9 +54,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrlPattern;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@WebMvcTest({UsuarioController.class, ClienteController.class, PedidoController.class, HomeController.class})
+@WebMvcTest({UsuarioController.class, ClienteController.class, PedidoController.class,
+        AuditoriaController.class, HomeController.class})
 @Import({SecurityConfig.class, UsuarioDetailsService.class, UsuarioService.class,
-        ClienteService.class, PedidoService.class, ProdutoService.class})
+        ClienteService.class, PedidoService.class, ProdutoService.class, AuditoriaService.class})
 class SegurancaAutorizacaoTest {
 
     @Autowired
@@ -61,6 +65,9 @@ class SegurancaAutorizacaoTest {
 
     @MockitoBean
     private UsuarioRepository usuarioRepo;
+
+    @MockitoBean
+    private AuditoriaRepository auditoriaRepo;
 
     @MockitoBean
     private ClienteRepository clienteRepo;
@@ -251,7 +258,10 @@ class SegurancaAutorizacaoTest {
     void atendenteConsultaCadastraEEditaCliente() throws Exception {
         when(clienteRepo.findAll()).thenReturn(List.of());
         when(clienteRepo.save(any())).thenAnswer(i -> i.getArgument(0));
-        when(clienteRepo.existsById("1")).thenReturn(true);
+        Cliente existente = new Cliente();
+        existente.setId("1");
+        existente.setNome("Anterior");
+        when(clienteRepo.findById("1")).thenReturn(Optional.of(existente));
 
         mvc.perform(get("/api/clientes")).andExpect(status().isOk());
         mvc.perform(post("/api/clientes").with(csrf())
@@ -613,6 +623,106 @@ class SegurancaAutorizacaoTest {
     void atendenteNaoDefineCanceladoPeloEndpointGenerico() throws Exception {
         mvc.perform(put("/api/pedidos/1/status").with(csrf()).param("status", "CANCELADO"))
                 .andExpect(status().isBadRequest());
+    }
+
+    // ========================
+    // RF04 e auditoria
+    // ========================
+
+    private void mockPedidoParaRf04() {
+        Pedido pedido = new Pedido();
+        pedido.setId("1");
+        pedido.setStatus("RECEBIDO");
+        pedido.setValorSubtotal(new BigDecimal("100.00"));
+        pedido.setPercentualDesconto(new BigDecimal("0.00"));
+        pedido.setValorDesconto(new BigDecimal("0.00"));
+        pedido.setValorTotal(new BigDecimal("100.00"));
+        when(pedidoRepo.findById("1")).thenReturn(Optional.of(pedido));
+        when(pedidoRepo.save(any())).thenAnswer(i -> i.getArgument(0));
+    }
+
+    @Test
+    @WithMockUser(username = "gerente01", roles = "GERENTE")
+    void gerenteAplicaDesconto() throws Exception {
+        mockPedidoParaRf04();
+
+        mvc.perform(put("/api/pedidos/1/desconto").with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"percentual\":10}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.valorDesconto").value(10.0))
+                .andExpect(jsonPath("$.valorTotal").value(90.0));
+    }
+
+    @Test
+    @WithMockUser(username = "gerente01", roles = "GERENTE")
+    void gerenteCancelaPedidoComJustificativa() throws Exception {
+        mockPedidoParaRf04();
+
+        mvc.perform(put("/api/pedidos/1/cancelar").with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"justificativa\":\"Cliente desistiu\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("CANCELADO"))
+                .andExpect(jsonPath("$.responsavelCancelamento").value("gerente01"));
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void adminNaoAplicaDescontoNemCancelaPedido() throws Exception {
+        mvc.perform(put("/api/pedidos/1/desconto").with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"percentual\":10}"))
+                .andExpect(status().isForbidden());
+        mvc.perform(put("/api/pedidos/1/cancelar").with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"justificativa\":\"motivo\"}"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(roles = "ATENDENTE")
+    void atendenteNaoAplicaDescontoNemCancelaPedido() throws Exception {
+        mvc.perform(put("/api/pedidos/1/desconto").with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"percentual\":10}"))
+                .andExpect(status().isForbidden());
+        mvc.perform(put("/api/pedidos/1/cancelar").with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"justificativa\":\"motivo\"}"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(roles = "GERENTE")
+    void operacaoRf04SemCsrfRecebe403() throws Exception {
+        mvc.perform(put("/api/pedidos/1/desconto")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"percentual\":10}"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void adminConsultaAuditoria() throws Exception {
+        when(auditoriaRepo.findAll()).thenReturn(List.of());
+        mvc.perform(get("/api/auditoria")).andExpect(status().isOk());
+        mvc.perform(get("/auditoria")).andExpect(status().isOk());
+    }
+
+    @Test
+    @WithMockUser(roles = "GERENTE")
+    void gerenteConsultaAuditoria() throws Exception {
+        when(auditoriaRepo.findAll()).thenReturn(List.of());
+        mvc.perform(get("/api/auditoria")).andExpect(status().isOk());
+        mvc.perform(get("/auditoria")).andExpect(status().isOk());
+    }
+
+    @Test
+    @WithMockUser(roles = "ATENDENTE")
+    void atendenteNaoConsultaAuditoria() throws Exception {
+        mvc.perform(get("/api/auditoria")).andExpect(status().isForbidden());
+        mvc.perform(get("/auditoria")).andExpect(status().isForbidden());
     }
 
     // ========================

@@ -20,7 +20,7 @@ public class MongoInitConfig implements CommandLineRunner {
 
     @Override
     public void run(String... args) {
-        for (String collection : List.of("pedidos", "clientes", "usuarios", "produtos")) {
+        for (String collection : List.of("pedidos", "clientes", "usuarios", "produtos", "auditoria")) {
             if (!mongoOperations.collectionExists(collection)) {
                 mongoOperations.createCollection(collection);
             }

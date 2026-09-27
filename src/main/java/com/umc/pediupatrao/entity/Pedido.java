@@ -28,6 +28,9 @@ public class Pedido {
     private Instant dataHoraEntrada;
     private String responsavelSaida;
     private Instant dataHoraSaida;
+    private String motivoCancelamento;
+    private String responsavelCancelamento;
+    private Instant dataHoraCancelamento;
 
     public String getId() {
         return id;
@@ -147,6 +150,30 @@ public class Pedido {
 
     public void setDataHoraSaida(Instant dataHoraSaida) {
         this.dataHoraSaida = dataHoraSaida;
+    }
+
+    public String getMotivoCancelamento() {
+        return motivoCancelamento;
+    }
+
+    public void setMotivoCancelamento(String motivoCancelamento) {
+        this.motivoCancelamento = motivoCancelamento;
+    }
+
+    public String getResponsavelCancelamento() {
+        return responsavelCancelamento;
+    }
+
+    public void setResponsavelCancelamento(String responsavelCancelamento) {
+        this.responsavelCancelamento = responsavelCancelamento;
+    }
+
+    public Instant getDataHoraCancelamento() {
+        return dataHoraCancelamento;
+    }
+
+    public void setDataHoraCancelamento(Instant dataHoraCancelamento) {
+        this.dataHoraCancelamento = dataHoraCancelamento;
     }
 
 }
