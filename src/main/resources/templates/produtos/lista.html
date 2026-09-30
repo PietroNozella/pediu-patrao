@@ -8,23 +8,19 @@
         <link rel="stylesheet" th:href="@{/css/style.css}">
     </head>
     <body>
-        <!-- Sidebar incluído como fragmento -->
-        <aside>
-            <div th:replace="~{fragments/sidebar :: sidebar}"></div>
-        </aside>
-
-        <div class="container mt-5">
+        <div th:fragment="content" class="container mt-5">
             <h1 class="mb-4">Gestão de Produtos</h1>
 
-            <!-- Botão para abrir o formulário -->
-            <button class="btn btn-primary mb-3" data-bs-toggle="collapse" data-bs-target="#formularioProduto">
+            <button type="button" class="btn btn-primary mb-3" id="novoProdutoBtn">
                 Novo Produto
             </button>
 
-            <!-- Formulário de Cadastro -->
+            <div id="produtoErro" class="alert alert-danger" role="alert" style="display:none"></div>
+
             <div class="collapse" id="formularioProduto">
                 <div class="card card-body">
-                    <form th:action="@{/api/produtos}" method="post" id="produtoForm">
+                    <form id="produtoForm">
+                        <input type="hidden" id="produtoId">
                         <div class="mb-3">
                             <label for="nome" class="form-label">Nome do Produto</label>
                             <input type="text" id="nome" name="nome" class="form-control" placeholder="Nome do Produto" required>
@@ -35,6 +31,7 @@
                             <select id="tipo" name="tipo" class="form-select" required>
                                 <option value="" disabled selected>Selecione o Tipo</option>
                                 <option value="Pizza">Pizza</option>
+                                <option value="Esfiha">Esfiha</option>
                                 <option value="Lanche">Lanche</option>
                                 <option value="Bebida">Bebida</option>
                                 <option value="Porção">Porção</option>
@@ -44,11 +41,11 @@
 
                         <div class="mb-3">
                             <label for="preco" class="form-label">Preço</label>
-                            <input type="number" id="preco" name="preco" class="form-control" placeholder="Preço (R$)" step="0.01" required>
+                            <input type="number" id="preco" name="preco" class="form-control" placeholder="Preço (R$)" min="0.01" step="0.01" required>
                         </div>
 
                         <div class="form-check mb-3">
-                            <input type="checkbox" id="ativo" name="ativo" class="form-check-input">
+                            <input type="checkbox" id="ativo" name="ativo" class="form-check-input" checked>
                             <label for="ativo" class="form-check-label">Produto Ativo</label>
                         </div>
 
@@ -72,7 +69,9 @@
                     </tr>
                 </thead>
                 <tbody>
-                    <!-- Loop para listar os produtos -->
+                    <tr th:if="${#lists.isEmpty(produtos)}">
+                        <td colspan="6" class="text-center text-muted">Nenhum produto cadastrado.</td>
+                    </tr>
                     <tr th:each="produto : ${produtos}">
                         <td th:text="${produto.id}"></td>
                         <td th:text="${produto.nome}"></td>
@@ -80,16 +79,90 @@
                         <td th:text="${#numbers.formatDecimal(produto.preco, 1, 'COMMA', 2, 'POINT')}"></td>
                         <td th:text="${produto.ativo ? 'Sim' : 'Não'}">Sim</td>
                         <td>
-                            <a th:href="@{/api/produtos/{id}(id=${produto.id})}" class="btn btn-warning btn-sm">Editar</a>
-                            <a th:href="@{/api/produtos/{id}(id=${produto.id})}" class="btn btn-danger btn-sm" 
-                               onclick="return confirm('Tem certeza que deseja excluir este produto?');">
-                                Excluir
-                            </a>
+                            <button type="button" class="btn btn-warning btn-sm editar-produto"
+                                    th:attr="data-id=${produto.id},data-nome=${produto.nome},data-tipo=${produto.tipo},data-preco=${produto.preco},data-ativo=${produto.ativo}">Editar</button>
+                            <button type="button" class="btn btn-danger btn-sm excluir-produto"
+                                    th:attr="data-id=${produto.id}">Excluir</button>
                         </td>
                     </tr>
                 </tbody>
             </table>
+
+            <script>
+                const formularioProduto = document.getElementById('produtoForm');
+                const produtoErro = document.getElementById('produtoErro');
+                const painelProduto = document.getElementById('formularioProduto');
+
+                function mostrarErroProduto() {
+                    produtoErro.textContent = 'Não foi possível salvar a alteração. Tente novamente.';
+                    produtoErro.style.display = 'block';
+                }
+
+                function headersProduto() {
+                    const token = document.querySelector('meta[name="_csrf"]').content;
+                    const header = document.querySelector('meta[name="_csrf_header"]').content;
+                    return { 'Content-Type': 'application/json', [header]: token };
+                }
+
+                document.getElementById('novoProdutoBtn').addEventListener('click', () => {
+                    formularioProduto.reset();
+                    document.getElementById('produtoId').value = '';
+                    document.getElementById('ativo').checked = true;
+                    produtoErro.style.display = 'none';
+                    painelProduto.classList.add('show');
+                    document.getElementById('nome').focus();
+                });
+
+                document.querySelectorAll('.editar-produto').forEach((botao) => {
+                    botao.addEventListener('click', () => {
+                        document.getElementById('produtoId').value = botao.dataset.id;
+                        document.getElementById('nome').value = botao.dataset.nome;
+                        document.getElementById('tipo').value = botao.dataset.tipo;
+                        document.getElementById('preco').value = botao.dataset.preco;
+                        document.getElementById('ativo').checked = botao.dataset.ativo === 'true';
+                        produtoErro.style.display = 'none';
+                        painelProduto.classList.add('show');
+                        formularioProduto.scrollIntoView({ behavior: 'smooth' });
+                    });
+                });
+
+                formularioProduto.addEventListener('submit', async (evento) => {
+                    evento.preventDefault();
+                    const id = document.getElementById('produtoId').value;
+                    const produto = {
+                        nome: document.getElementById('nome').value.trim(),
+                        tipo: document.getElementById('tipo').value,
+                        preco: Number(document.getElementById('preco').value),
+                        ativo: document.getElementById('ativo').checked
+                    };
+                    try {
+                        const resposta = await fetch(id ? `/api/produtos/${encodeURIComponent(id)}` : '/api/produtos', {
+                            method: id ? 'PUT' : 'POST',
+                            headers: headersProduto(),
+                            body: JSON.stringify(produto)
+                        });
+                        if (!resposta.ok) throw new Error();
+                        window.location.reload();
+                    } catch {
+                        mostrarErroProduto();
+                    }
+                });
+
+                document.querySelectorAll('.excluir-produto').forEach((botao) => {
+                    botao.addEventListener('click', async () => {
+                        if (!window.confirm('Tem certeza que deseja excluir este produto?')) return;
+                        try {
+                            const resposta = await fetch(`/api/produtos/${encodeURIComponent(botao.dataset.id)}`, {
+                                method: 'DELETE', headers: headersProduto()
+                            });
+                            if (!resposta.ok) throw new Error();
+                            window.location.reload();
+                        } catch {
+                            mostrarErroProduto();
+                        }
+                    });
+                });
+            </script>
         </div>
-        <script th:src="@{/js/script.js}"></script>
     </body>
 </html>
