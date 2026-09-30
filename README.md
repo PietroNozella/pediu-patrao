@@ -10,23 +10,28 @@ O projeto atende operações de pizzaria, lanchonete e esfiharia com pedidos par
 - Operações que precisam de balcão + entrega + retirada no mesmo fluxo
 - Equipes que precisam controlar descontos, cancelamentos e acessos por perfil
 
-## Regras principais
+## Principais alterações realizadas
 
-- O status do pedido só avança pelas transições permitidas
-- Descontos entre 0,01% e 20% podem ser aplicados pelo gerente antes da saída ou retirada
-- Cancelamentos exigem justificativa e registram responsável e data/hora
-- Criação de pedidos, mudanças de status, descontos, cancelamentos e alterações de clientes geram registros de auditoria
-- Os perfis `ATENDENTE`, `GERENTE` e `ADMIN` limitam o acesso às operações
-- O controle de versão do pedido evita que alterações concorrentes sobrescrevam dados silenciosamente
+- O acesso passou a distinguir `ADMIN`, `GERENTE` e `ATENDENTE`, com autorização das operações no backend e validação dos perfis cadastrados.
+- O pedido passou a guardar itens, valores calculados no servidor, responsável e horários de entrada e saída, além de validar cada transição de status.
+- Descontos e cancelamentos passaram a ser operações exclusivas do GERENTE, com limites e justificativa conforme a operação.
+- As mudanças em pedidos e clientes passaram a gerar registros persistentes de auditoria com usuário, perfil, data/hora e valores anteriores e novos.
+- O controle de versão do pedido passou a impedir que alterações concorrentes sobrescrevam dados silenciosamente.
 
-## Funcionalidades
+## Requisitos implementados
 
-### Pedidos
+### RF02 e RF03 — Pedidos
 - Criação com cliente + itens do cardápio, subtotal e total calculados no backend
 - Máquina de estados: `RECEBIDO → EM_PREPARACAO → PRONTO → SAIU_PARA_ENTREGA / RETIRADO → FINALIZADO`, além de `CANCELADO`
 - Registro automático de responsável, entrada, saída e cancelamento
 - Listagem operacional + formulário de novo pedido com clientes e produtos ativos
 - API REST em `/api/pedidos` para as operações de pedido
+
+### RF04 — Descontos e cancelamentos
+
+- Descontos entre 0,01% e 20% somente pelo GERENTE e antes da saída ou retirada
+- Cancelamento somente pelo GERENTE, antes da saída ou retirada, com justificativa, responsável e data/hora
+- Pedidos finalizados ou cancelados não aceitam novas transições
 
 ### Clientes
 - Cadastro com nome, telefone e endereço completo: CEP, logradouro, número, complemento, bairro, cidade, UF
@@ -36,11 +41,11 @@ O projeto atende operações de pizzaria, lanchonete e esfiharia com pedidos par
 - Produtos por tipo: Pizza, Esfiha, Bebida, Lanche
 - Preço e flag ativo/inativo — produto inativo não entra em pedido novo
 
-### Equipe / Usuários
+### RF01 — Equipe / Usuários
 - CRUD de usuários com senha criptografada (BCrypt)
 - Perfis `ADMIN`, `GERENTE`, `ATENDENTE`
 
-### Auditoria
+### RF05 — Auditoria
 
 - Tela dedicada para admin e gerente
 - Registra eventos de pedidos e clientes, incluindo alterações de campos quando disponíveis
@@ -134,12 +139,24 @@ export APP_ADMIN_PASSWORD="troque-aqui"
 
 ### 3. Fluxo de demonstração
 
-1. Cadastre 3 produtos e 1 cliente
-2. Crie um pedido como atendente em `/pedidos/novo`
-3. Avance `RECEBIDO → EM_PREPARACAO → PRONTO`
-4. Como gerente, aplique 10% de desconto antes da saída
-5. Marque `SAIU_PARA_ENTREGA` e finalize
-6. Consulte os registros gerados em `/auditoria`
+1. Entre como `ADMIN` e crie usuários `GERENTE` e `ATENDENTE` em `/usuarios`. Cadastre produtos em `/produtos` para os pedidos.
+2. Use **Sair** e entre como `ATENDENTE`. Cadastre um cliente, altere seu telefone ou endereço e crie dois pedidos em `/pedidos/novo`.
+3. No primeiro pedido, avance `RECEBIDO → EM_PREPARACAO → PRONTO`. Demonstre um bloqueio real da API: no console do navegador, execute `fetch('/api/auditoria').then(r => console.log(r.status))`. O retorno esperado para `ATENDENTE` é `403`.
+4. Ainda como `ATENDENTE`, tente aplicar desconto pela API ao primeiro pedido. Substitua `ID_DO_PEDIDO` pelo ID exibido na lista. Inclua o token CSRF para que o `403` comprove a restrição de perfil:
+
+   ```javascript
+   const token = document.querySelector('meta[name="_csrf"]').content;
+   const header = document.querySelector('meta[name="_csrf_header"]').content;
+   fetch('/api/pedidos/ID_DO_PEDIDO/desconto', {
+     method: 'PUT',
+     headers: { 'Content-Type': 'application/json', [header]: token },
+     body: JSON.stringify({ percentual: 10 })
+   }).then(r => console.log(r.status)); // 403
+   ```
+
+5. Use **Sair** e entre como `GERENTE`. Aplique 10% de desconto ao primeiro pedido, marque `SAIU_PARA_ENTREGA` e depois `FINALIZADO`. Cancele o segundo pedido antes da saída, informando uma justificativa.
+6. Em `/auditoria`, confira os registros das ações gravadas: criação e transições dos pedidos, desconto, cancelamento e alteração do cliente. Os identificadores dos registros devem corresponder aos pedidos e ao cliente mostrados no vídeo.
+7. Use **Sair** e entre novamente como `ADMIN` para mostrar a autenticação do terceiro perfil e a consulta à auditoria.
 
 ## API de pedidos
 

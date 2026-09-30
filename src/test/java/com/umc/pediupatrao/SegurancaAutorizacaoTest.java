@@ -51,6 +51,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrlPattern;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -101,6 +102,18 @@ class SegurancaAutorizacaoTest {
         mvc.perform(get("/api/usuarios"))
                 .andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrlPattern("**/login*"));
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void usuarioPodeSairPeloFormularioComCsrf() throws Exception {
+        mvc.perform(get("/"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("action=\"/logout\"")))
+                .andExpect(content().string(containsString("name=\"_csrf\"")));
+        mvc.perform(post("/logout").with(csrf()))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/login?logout"));
     }
 
     // ========================
@@ -163,6 +176,7 @@ class SegurancaAutorizacaoTest {
         mvc.perform(get("/api/usuarios")).andExpect(status().isForbidden());
         mvc.perform(get("/usuarios")).andExpect(status().isForbidden());
         mvc.perform(get("/usuarios/novo")).andExpect(status().isForbidden());
+        mvc.perform(get("/admin")).andExpect(status().isForbidden());
     }
 
     @Test
