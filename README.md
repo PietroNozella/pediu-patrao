@@ -2,7 +2,7 @@
 
 O Pediu Patrão reúne o gerenciamento de pedidos, clientes, produtos e usuários em uma aplicação web. O sistema controla o fluxo dos pedidos, restringe operações por perfil e registra alterações importantes para auditoria.
 
-O projeto atende operações de pizzaria, lanchonete e esfiharia com pedidos para entrega ou retirada.
+O projeto atende operações de pizzaria, lanchonete e esfiharia com pedidos para entrega, retirada ou balcão. O dashboard gerencial consolida vendas, status e produtos mais vendidos para `ADMIN` e `GERENTE`.
 
 ## Para quem é
 
@@ -17,6 +17,8 @@ O projeto atende operações de pizzaria, lanchonete e esfiharia com pedidos par
 - Descontos e cancelamentos passaram a ser operações exclusivas do GERENTE, com limites e justificativa conforme a operação.
 - As mudanças em pedidos e clientes passaram a gerar registros persistentes de auditoria com usuário, perfil, data/hora e valores anteriores e novos.
 - O controle de versão do pedido passou a impedir que alterações concorrentes sobrescrevam dados silenciosamente.
+- O dashboard gerencial passou a expor KPIs, gráficos, ranking de produtos e filtros por meio de uma API REST própria.
+- Os pedidos passaram a registrar `tipoEntrega` (`ENTREGA`, `RETIRADA`, `BALCAO`) e os itens passaram a guardar o snapshot `tipoProduto`, preservando o histórico do cardápio.
 
 ## Requisitos implementados
 
@@ -50,6 +52,18 @@ O projeto atende operações de pizzaria, lanchonete e esfiharia com pedidos par
 - Tela dedicada para admin e gerente
 - Registra eventos de pedidos e clientes, incluindo alterações de campos quando disponíveis
 
+### Dashboard gerencial — RF01 a RF07
+
+- **RF01:** KPIs de faturamento, pedidos, ticket médio, cancelamentos, andamento, tempo médio, descontos e finalizados, com comparação ao período anterior.
+- **RF02:** gráficos de evolução das vendas, receita por categoria e pedidos por tipo de entrega.
+- **RF03:** distribuição dos pedidos por status e tabela paginada com status destacado.
+- **RF04:** ranking de produtos por quantidade ou receita, com participação percentual.
+- **RF05:** filtros de período, agrupamento, status, tipo de entrega, ordenação e limite.
+- **RF06:** API REST em `/api/dashboard`, consumida pelo frontend via `fetch`.
+- **RF07:** atualização manual e automática (60s), barra de progresso, estados vazios e tratamento de erros com nova tentativa.
+
+Documentação detalhada: [`docs/requisitos.md`](docs/requisitos.md) e [`docs/api-dashboard.md`](docs/api-dashboard.md).
+
 ## Perfis de acesso
 
 | Recurso | ATENDENTE | GERENTE | ADMIN |
@@ -63,6 +77,7 @@ O projeto atende operações de pizzaria, lanchonete e esfiharia com pedidos par
 | Clientes criar/editar | Sim | Não | Não |
 | Clientes excluir | Não | Sim | Não |
 | API de produtos (`/api/produtos`) | Sem restrição específica por perfil** | Sem restrição específica por perfil** | Sem restrição específica por perfil** |
+| Dashboard (`/dashboard` + `/api/dashboard/**`) | Não (`403`) | Sim | Sim |
 | Usuários | Não | Não | Total |
 | Auditoria | Não | Sim | Sim |
 
@@ -81,18 +96,26 @@ O projeto atende operações de pizzaria, lanchonete e esfiharia com pedidos par
 
 ```
 src/main/java/com/umc/pediupatrao/
-  controller/   # HomeController (telas) + PedidoController, ClienteController, ProdutoController, UsuarioController, AuditoriaController
-  service/      # PedidoService, ClienteService, ProdutoService, UsuarioService, AuditoriaService
-  entity/       # Pedido, ItemPedido, Cliente, Produto, Usuario, StatusPedido, PerfilUsuario, RegistroAuditoria
+  controller/   # HomeController (telas) + PedidoController, ClienteController, ProdutoController, UsuarioController, AuditoriaController, DashboardController
+  service/      # PedidoService, ClienteService, ProdutoService, UsuarioService, AuditoriaService, DashboardService, DashboardMath
+  entity/       # Pedido, ItemPedido, Cliente, Produto, Usuario, StatusPedido, TipoEntrega, PerfilUsuario, RegistroAuditoria
   repository/   # Repositórios MongoDB
-  dto/          # CriarPedidoRequest, ItemPedidoRequest, AplicarDescontoRequest, CancelarPedidoRequest
-  config/       # SecurityConfig, DataInitializer, MongoInitConfig
+  dto/          # CriarPedidoRequest, ItemPedidoRequest, AplicarDescontoRequest, CancelarPedidoRequest, dto/dashboard
+  config/       # SecurityConfig, DataInitializer, MongoInitConfig, DemoDataSeeder
 src/main/resources/
-  templates/    # layout, home, login, pedidos, clientes, produtos, usuarios, auditoria, configuracoes
-  static/       # css, js, images, plugins
+  templates/    # layout, home, login, dashboard, pedidos, clientes, produtos, usuarios, auditoria, configuracoes
+  static/       # css, js, images, plugins (Chart.js 2.9.4 local)
   application.properties
-src/test/java/  # PedidoService, desconto/cancelamento, status, segurança, auditoria, perfil, DataInitializer
+src/test/java/  # PedidoService, desconto/cancelamento, status, segurança, auditoria, perfil, DataInitializer, dashboard
+docs/           # requisitos, API do dashboard, evidências de testes, roteiro do vídeo
 ```
+
+## Documentação
+
+- [`docs/requisitos.md`](docs/requisitos.md) — requisitos funcionais e não funcionais, regras de cálculo e decisões.
+- [`docs/api-dashboard.md`](docs/api-dashboard.md) — endpoints, parâmetros, exemplos de resposta e erros.
+- [`docs/evidencias-testes.md`](docs/evidencias-testes.md) — resultados da suíte, cobertura e checklist manual.
+- [`docs/roteiro-video.md`](docs/roteiro-video.md) — roteiro cronometrado para a demonstração em até 3 minutos.
 
 ## Executar localmente
 
@@ -137,6 +160,24 @@ export APP_ADMIN_PASSWORD="troque-aqui"
 - Login: `/login`
 - No primeiro acesso, use o administrador criado pelo `DataInitializer`. O perfil `ADMIN` pode alterar essa senha na área de usuários.
 
+### 2.1 Dados de demonstração (opcional)
+
+Para popular a base com clientes, produtos e cerca de 200 pedidos dos últimos 45 dias:
+
+```powershell
+$env:MONGODB_URI="mongodb://localhost:27017/pizzaria"
+.\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=demo"
+```
+
+O profile `demo` cria os usuários:
+
+| Perfil | Usuário | Senha |
+| --- | --- | --- |
+| GERENTE | `gerente` | `gerente123` |
+| ATENDENTE | `atendente` | `atendente123` |
+
+O seed é idempotente para pedidos: se a coleção `pedidos` já tiver registros, nenhum pedido novo é criado. Os usuários de demonstração são criados apenas se ainda não existirem.
+
 ### 3. Fluxo de demonstração
 
 1. Entre como `ADMIN` e crie usuários `GERENTE` e `ATENDENTE` em `/usuarios`. Cadastre produtos em `/produtos` para os pedidos.
@@ -157,6 +198,22 @@ export APP_ADMIN_PASSWORD="troque-aqui"
 5. Use **Sair** e entre como `GERENTE`. Aplique 10% de desconto ao primeiro pedido, marque `SAIU_PARA_ENTREGA` e depois `FINALIZADO`. Cancele o segundo pedido antes da saída, informando uma justificativa.
 6. Em `/auditoria`, confira os registros das ações gravadas: criação e transições dos pedidos, desconto, cancelamento e alteração do cliente. Os identificadores dos registros devem corresponder aos pedidos e ao cliente mostrados no vídeo.
 7. Use **Sair** e entre novamente como `ADMIN` para mostrar a autenticação do terceiro perfil e a consulta à auditoria.
+8. Com o profile `demo`, entre como `GERENTE` e abra `/dashboard`. Percorra os KPIs, aplique filtros de 7/30/90 dias, alterne o agrupamento, o ranking e a paginação. Ative a atualização automática e simule uma falha de rede no DevTools para ver o alerta e o botão **Tentar novamente**.
+9. Em uma janela anônima, entre como `ATENDENTE` e acesse `/dashboard` diretamente: o retorno deve ser `403`. Sem sessão, `GET /api/dashboard/resumo` deve retornar `401`.
+
+## API do dashboard
+
+Base: `/api/dashboard`. Somente leitura, disponível para `ADMIN` e `GERENTE`.
+
+```http
+GET /api/dashboard/resumo?inicio=2026-10-01&fim=2026-10-30
+GET /api/dashboard/vendas?inicio=2026-10-01&fim=2026-10-30&agrupamento=semana
+GET /api/dashboard/produtos?inicio=2026-10-01&fim=2026-10-30&ordenarPor=receita&limit=10
+GET /api/dashboard/pedidos?inicio=2026-10-01&fim=2026-10-30&page=0&size=10
+GET /api/dashboard/filtros
+```
+
+Parâmetros, exemplos de resposta, regras de cálculo e erros: [`docs/api-dashboard.md`](docs/api-dashboard.md).
 
 ## API de pedidos
 
@@ -175,11 +232,14 @@ Exemplo criar:
 ```json
 {
   "clienteId": "<K_ID>",
+  "tipoEntrega": "ENTREGA",
   "itens": [
     { "produtoId": "<P_ID>", "quantidade": 2 }
   ]
 }
 ```
+
+`tipoEntrega` é opcional; quando omitido, o pedido assume `BALCAO`. Valores aceitos: `ENTREGA`, `RETIRADA` e `BALCAO`.
 
 Exemplo desconto (gerente):
 
@@ -200,7 +260,9 @@ Exemplo cancelamento (gerente):
 # Windows: .\mvnw.cmd test
 ```
 
-Os testes cobrem regras de status, desconto e cancelamento, permissões por perfil, auditoria de clientes e inicialização do banco.
+A suíte atual tem **156 testes** e cobre regras de status, desconto e cancelamento, permissões por perfil, auditoria de clientes, inicialização do banco, cálculos e validações do dashboard, segurança da página/API e geração dos dados de demonstração.
+
+Evidências detalhadas: [`docs/evidencias-testes.md`](docs/evidencias-testes.md).
 
 ## Segurança e produção
 
@@ -215,7 +277,8 @@ Os testes cobrem regras de status, desconto e cancelamento, permissões por perf
 - Taxas de entrega por bairro
 - Integração iFood / WhatsApp
 - Multi-loja com isolamento por unidade
-- Relatórios de ticket médio, cancelamento e desconto por operador
+- Metas de vendas e comparativos por operador
+- Exportação de relatórios do dashboard
 
 ## Suporte e licença
 
