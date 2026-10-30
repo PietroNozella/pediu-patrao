@@ -762,7 +762,9 @@ class SegurancaAutorizacaoTest {
         mvc.perform(get("/dashboard"))
                 .andExpect(status().isOk())
                 .andExpect(content().string(containsString("Evolução das vendas")))
-                .andExpect(content().string(containsString("/js/dashboard.js")));
+                .andExpect(content().string(containsString("/css/dashboard.css")))
+                .andExpect(content().string(containsString("/js/dashboard.js")))
+                .andExpect(content().string(containsString("/plugins/chart.js/Chart.min.js")));
     }
 
     @Test
