@@ -32,6 +32,18 @@
                 </select>
             </div>
 
+            <!-- Tipo de entrega -->
+            <div class="mb-4">
+                <label for="tipoEntrega" class="form-label fw-medium">
+                    <i class="bi bi-truck me-1"></i>Tipo de entrega
+                </label>
+                <select id="tipoEntrega" class="form-select">
+                    <option value="BALCAO">Balcão</option>
+                    <option value="ENTREGA">Entrega</option>
+                    <option value="RETIRADA">Retirada</option>
+                </select>
+            </div>
+
             <!-- Itens -->
             <div class="d-flex justify-content-between align-items-center mb-2">
                 <label class="form-label fw-medium mb-0">
@@ -110,6 +122,7 @@
         btnEnviar.addEventListener('click', async () => {
             limparErro();
             const clienteId = document.getElementById('cliente').value;
+            const tipoEntrega = document.getElementById('tipoEntrega').value;
             if (!clienteId) {
                 mostrarErro('Selecione um cliente.');
                 return;
@@ -140,7 +153,7 @@
                 const response = await fetch('/api/pedidos', {
                     method: 'POST',
                     headers,
-                    body: JSON.stringify({ clienteId, itens })
+                    body: JSON.stringify({ clienteId, tipoEntrega, itens })
                 });
                 if (response.ok) {
                     window.location.href = '/pedidos';
