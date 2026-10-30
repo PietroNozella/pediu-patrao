@@ -5,6 +5,7 @@ import java.math.BigDecimal;
 public class ItemPedido {
     private String produtoId;
     private String nomeProduto;
+    private String tipoProduto;
     private int quantidade;
     private BigDecimal precoUnitario;
     private BigDecimal subtotal;
@@ -14,8 +15,14 @@ public class ItemPedido {
 
     public ItemPedido(String produtoId, String nomeProduto, int quantidade,
                       BigDecimal precoUnitario, BigDecimal subtotal) {
+        this(produtoId, nomeProduto, null, quantidade, precoUnitario, subtotal);
+    }
+
+    public ItemPedido(String produtoId, String nomeProduto, String tipoProduto, int quantidade,
+                      BigDecimal precoUnitario, BigDecimal subtotal) {
         this.produtoId = produtoId;
         this.nomeProduto = nomeProduto;
+        this.tipoProduto = tipoProduto;
         this.quantidade = quantidade;
         this.precoUnitario = precoUnitario;
         this.subtotal = subtotal;
@@ -35,6 +42,14 @@ public class ItemPedido {
 
     public void setNomeProduto(String nomeProduto) {
         this.nomeProduto = nomeProduto;
+    }
+
+    public String getTipoProduto() {
+        return tipoProduto;
+    }
+
+    public void setTipoProduto(String tipoProduto) {
+        this.tipoProduto = tipoProduto;
     }
 
     public int getQuantidade() {

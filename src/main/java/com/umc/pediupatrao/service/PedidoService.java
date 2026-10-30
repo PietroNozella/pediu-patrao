@@ -7,6 +7,7 @@ import com.umc.pediupatrao.entity.ItemPedido;
 import com.umc.pediupatrao.entity.Pedido;
 import com.umc.pediupatrao.entity.Produto;
 import com.umc.pediupatrao.entity.StatusPedido;
+import com.umc.pediupatrao.entity.TipoEntrega;
 import com.umc.pediupatrao.repository.ClienteRepository;
 import com.umc.pediupatrao.repository.PedidoRepository;
 import com.umc.pediupatrao.repository.ProdutoRepository;
@@ -22,6 +23,7 @@ import java.math.RoundingMode;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.stream.Collectors;
 
 @Service
@@ -69,6 +71,7 @@ public class PedidoService {
 
         Pedido pedido = new Pedido();
         pedido.setClienteId(request.getClienteId());
+        pedido.setTipoEntrega(resolverTipoEntrega(request.getTipoEntrega()));
         pedido.setItens(itens);
         pedido.setValorSubtotal(subtotalPedido);
         pedido.setPercentualDesconto(new BigDecimal("0.00"));
@@ -86,6 +89,7 @@ public class PedidoService {
         }
         auditar(username, "CRIACAO_PEDIDO", "PEDIDO", salvo.getId(), List.of(
                 new AlteracaoCampo("clienteId", null, AuditoriaService.texto(salvo.getClienteId())),
+                new AlteracaoCampo("tipoEntrega", null, AuditoriaService.texto(salvo.getTipoEntrega())),
                 new AlteracaoCampo("itens", null, descreverItens(salvo.getItens())),
                 new AlteracaoCampo("valorSubtotal", null, AuditoriaService.texto(salvo.getValorSubtotal())),
                 new AlteracaoCampo("percentualDesconto", null, AuditoriaService.texto(salvo.getPercentualDesconto())),
@@ -119,8 +123,20 @@ public class PedidoService {
         BigDecimal preco = BigDecimal.valueOf(produto.getPreco()).setScale(2, RoundingMode.HALF_UP);
         BigDecimal subtotal = preco.multiply(BigDecimal.valueOf(itemRequest.getQuantidade()))
                 .setScale(2, RoundingMode.HALF_UP);
-        return new ItemPedido(produto.getId(), produto.getNome(),
+        return new ItemPedido(produto.getId(), produto.getNome(), produto.getTipo(),
                 itemRequest.getQuantidade(), preco, subtotal);
+    }
+
+    private String resolverTipoEntrega(String tipoEntrega) {
+        if (tipoEntrega == null || tipoEntrega.isBlank()) {
+            return TipoEntrega.BALCAO.name();
+        }
+        try {
+            return TipoEntrega.valueOf(tipoEntrega.trim().toUpperCase(Locale.ROOT)).name();
+        } catch (IllegalArgumentException exception) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Tipo de entrega invalido. Use ENTREGA, RETIRADA ou BALCAO");
+        }
     }
 
     public List<Pedido> listarPedidos() {

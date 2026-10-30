@@ -49,6 +49,13 @@ public class HomeController {
         return "layout";
     }
 
+    @GetMapping("/dashboard")
+    @PreAuthorize("hasAnyRole('ADMIN', 'GERENTE')")
+    public String dashboard(Model model) {
+        model.addAttribute("content", "dashboard :: content");
+        return "layout";
+    }
+
     // ========================
     // USUÁRIOS
     // ========================

@@ -9,6 +9,7 @@ import java.util.List;
 public class CriarPedidoRequest {
     @NotBlank
     private String clienteId;
+    private String tipoEntrega;
     @NotEmpty
     @Valid
     private List<ItemPedidoRequest> itens;
@@ -19,6 +20,14 @@ public class CriarPedidoRequest {
 
     public void setClienteId(String clienteId) {
         this.clienteId = clienteId;
+    }
+
+    public String getTipoEntrega() {
+        return tipoEntrega;
+    }
+
+    public void setTipoEntrega(String tipoEntrega) {
+        this.tipoEntrega = tipoEntrega;
     }
 
     public List<ItemPedidoRequest> getItens() {
