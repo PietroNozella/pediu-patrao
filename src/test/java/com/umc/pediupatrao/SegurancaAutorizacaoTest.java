@@ -740,6 +740,40 @@ class SegurancaAutorizacaoTest {
     }
 
     // ========================
+    // Dashboard
+    // ========================
+
+    @Test
+    void naoAutenticadoNaoAcessaDashboard() throws Exception {
+        mvc.perform(get("/dashboard"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrlPattern("**/login*"));
+    }
+
+    @Test
+    @WithMockUser(roles = "ATENDENTE")
+    void atendenteNaoAcessaDashboard() throws Exception {
+        mvc.perform(get("/dashboard")).andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(roles = "GERENTE")
+    void gerenteAcessaDashboard() throws Exception {
+        mvc.perform(get("/dashboard"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("Evolução das vendas")))
+                .andExpect(content().string(containsString("/js/dashboard.js")));
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void adminAcessaDashboard() throws Exception {
+        mvc.perform(get("/dashboard"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("Top produtos")));
+    }
+
+    // ========================
     // CSRF
     // ========================
 

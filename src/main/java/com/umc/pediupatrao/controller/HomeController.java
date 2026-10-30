@@ -53,6 +53,8 @@ public class HomeController {
     @PreAuthorize("hasAnyRole('ADMIN', 'GERENTE')")
     public String dashboard(Model model) {
         model.addAttribute("content", "dashboard :: content");
+        model.addAttribute("pageCss", "dashboard");
+        model.addAttribute("pageJs", "dashboard");
         return "layout";
     }
 

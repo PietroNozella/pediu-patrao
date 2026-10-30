@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Dashboard</title>
+</head>
+<body>
+
+<div th:fragment="content" class="dashboard">
+
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3">
+        <div>
+            <h2 class="fw-bold mb-1">
+                <i class="bi bi-speedometer2 me-2 text-primary"></i>Dashboard
+            </h2>
+            <p class="text-muted mb-0">Acompanhe faturamento, pedidos e desempenho do cardápio.</p>
+        </div>
+        <div class="d-flex flex-wrap align-items-center gap-3">
+            <div class="form-check form-switch mb-0">
+                <input class="form-check-input" type="checkbox" role="switch" id="autoAtualizar">
+                <label class="form-check-label small text-muted" for="autoAtualizar">
+                    Atualizar a cada 60s
+                </label>
+            </div>
+            <span class="text-muted small" id="ultimaAtualizacao" aria-live="polite">Carregando...</span>
+            <button type="button" class="btn btn-outline-primary btn-sm" id="btnAtualizar">
+                <i class="bi bi-arrow-clockwise me-1"></i>Atualizar
+            </button>
+        </div>
+    </div>
+
+    <div class="progress dashboard-progress d-none mb-3" id="dashboardCarregando"
+         role="progressbar" aria-label="Carregando dados do dashboard">
+        <div class="progress-bar progress-bar-striped progress-bar-animated" style="width: 100%"></div>
+    </div>
+
+    <div class="alert alert-danger d-none" id="dashboardErro" role="alert">
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <div class="d-flex align-items-start gap-2">
+                <i class="bi bi-exclamation-triangle-fill fs-5"></i>
+                <div>
+                    <strong>Não foi possível carregar o dashboard.</strong>
+                    <div class="small" id="dashboardErroDetalhe"></div>
+                </div>
+            </div>
+            <button type="button" class="btn btn-sm btn-outline-danger" id="btnTentarNovamente">
+                Tentar novamente
+            </button>
+        </div>
+    </div>
+
+    <!-- Filtros -->
+    <div class="card shadow-sm filter-card mb-4">
+        <div class="card-body">
+            <form id="filtrosForm" class="row g-3 align-items-end" novalidate>
+                <div class="col-6 col-md-4 col-xl-2">
+                    <label for="inicio" class="form-label">Início</label>
+                    <input type="date" class="form-control" id="inicio" required>
+                </div>
+                <div class="col-6 col-md-4 col-xl-2">
+                    <label for="fim" class="form-label">Fim</label>
+                    <input type="date" class="form-control" id="fim" required>
+                </div>
+                <div class="col-6 col-md-4 col-xl-2">
+                    <label for="agrupamento" class="form-label">Agrupamento</label>
+                    <select class="form-select" id="agrupamento">
+                        <option value="dia" selected>Por dia</option>
+                        <option value="semana">Por semana</option>
+                        <option value="mes">Por mês</option>
+                    </select>
+                </div>
+                <div class="col-6 col-md-4 col-xl-2">
+                    <label for="status" class="form-label">Status</label>
+                    <select class="form-select" id="status">
+                        <option value="">Todos os status</option>
+                    </select>
+                </div>
+                <div class="col-6 col-md-4 col-xl-2">
+                    <label for="tipoEntrega" class="form-label">Tipo de entrega</label>
+                    <select class="form-select" id="tipoEntrega">
+                        <option value="">Todos os tipos</option>
+                    </select>
+                </div>
+                <div class="col-12 col-md-4 col-xl-2 d-flex gap-2">
+                    <button type="submit" class="btn btn-primary flex-grow-1">
+                        <i class="bi bi-funnel me-1"></i>Aplicar
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary" id="btnLimpar"
+                            title="Restaurar período e filtros padrão">
+                        <i class="bi bi-arrow-counterclockwise"></i>
+                    </button>
+                </div>
+                <div class="col-6 col-md-4 col-xl-2">
+                    <label for="ordenarProdutos" class="form-label">Ranking de produtos</label>
+                    <select class="form-select" id="ordenarProdutos">
+                        <option value="quantidade" selected>Por quantidade</option>
+                        <option value="receita">Por receita</option>
+                    </select>
+                </div>
+                <div class="col-6 col-md-4 col-xl-2">
+                    <label for="limiteProdutos" class="form-label">Top produtos</label>
+                    <select class="form-select" id="limiteProdutos">
+                        <option value="5">Top 5</option>
+                        <option value="10" selected>Top 10</option>
+                        <option value="20">Top 20</option>
+                    </select>
+                </div>
+                <div class="col-12 col-xl-8">
+                    <div class="d-flex flex-wrap align-items-center gap-2">
+                        <span class="small text-muted">Períodos rápidos:</span>
+                        <button type="button" class="btn btn-sm btn-outline-secondary btn-periodo" data-dias="7">
+                            7 dias
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary btn-periodo" data-dias="30">
+                            30 dias
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary btn-periodo" data-dias="90">
+                            90 dias
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary btn-periodo" data-dias="mes">
+                            Este mês
+                        </button>
+                        <span class="small text-muted ms-xl-auto" id="periodoSelecionado"></span>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- KPIs -->
+    <div class="row g-3 mb-3">
+        <div class="col-6 col-xl-3">
+            <div class="card kpi-card h-100 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <span class="kpi-label">Faturamento</span>
+                        <span class="kpi-icon text-success"><i class="bi bi-cash-stack"></i></span>
+                    </div>
+                    <div class="kpi-value" id="kpiFaturamento">R$ 0,00</div>
+                    <div class="kpi-extra text-muted" id="kpiFaturamentoVariacao">Carregando...</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-xl-3">
+            <div class="card kpi-card h-100 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <span class="kpi-label">Pedidos</span>
+                        <span class="kpi-icon text-primary"><i class="bi bi-bag-check"></i></span>
+                    </div>
+                    <div class="kpi-value" id="kpiPedidos">0</div>
+                    <div class="kpi-extra text-muted" id="kpiPedidosVariacao">Carregando...</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-xl-3">
+            <div class="card kpi-card h-100 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <span class="kpi-label">Ticket médio</span>
+                        <span class="kpi-icon text-info"><i class="bi bi-receipt"></i></span>
+                    </div>
+                    <div class="kpi-value" id="kpiTicketMedio">R$ 0,00</div>
+                    <div class="kpi-extra text-muted" id="kpiTicketMedioExtra">Finalizados: 0</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-xl-3">
+            <div class="card kpi-card h-100 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <span class="kpi-label">Cancelamentos</span>
+                        <span class="kpi-icon text-danger"><i class="bi bi-x-octagon"></i></span>
+                    </div>
+                    <div class="kpi-value" id="kpiCancelados">0</div>
+                    <div class="kpi-extra text-muted" id="kpiCanceladosExtra">Taxa: 0,00%</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-xl-3">
+            <div class="card kpi-card h-100 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <span class="kpi-label">Em andamento</span>
+                        <span class="kpi-icon text-warning"><i class="bi bi-hourglass-split"></i></span>
+                    </div>
+                    <div class="kpi-value" id="kpiEmAndamento">0</div>
+                    <div class="kpi-extra text-muted" id="kpiEmAndamentoExtra">Pedidos ativos</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-xl-3">
+            <div class="card kpi-card h-100 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <span class="kpi-label">Tempo médio</span>
+                        <span class="kpi-icon text-secondary"><i class="bi bi-stopwatch"></i></span>
+                    </div>
+                    <div class="kpi-value" id="kpiTempoMedio">0 min</div>
+                    <div class="kpi-extra text-muted" id="kpiTempoMedioExtra">Entrada até a saída</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-xl-3">
+            <div class="card kpi-card h-100 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <span class="kpi-label">Descontos</span>
+                        <span class="kpi-icon text-warning"><i class="bi bi-percent"></i></span>
+                    </div>
+                    <div class="kpi-value" id="kpiDescontos">R$ 0,00</div>
+                    <div class="kpi-extra text-muted" id="kpiDescontosExtra">Sobre o faturamento bruto</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-xl-3">
+            <div class="card kpi-card h-100 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <span class="kpi-label">Finalizados</span>
+                        <span class="kpi-icon text-success"><i class="bi bi-check2-circle"></i></span>
+                    </div>
+                    <div class="kpi-value" id="kpiFinalizados">0</div>
+                    <div class="kpi-extra text-muted" id="kpiFinalizadosExtra">0,00% dos pedidos</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Gráficos principais -->
+    <div class="row g-3 mb-3">
+        <div class="col-12 col-xl-8">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-white d-flex flex-wrap justify-content-between align-items-center gap-2">
+                    <div>
+                        <h5 class="mb-0">Evolução das vendas</h5>
+                        <small class="text-muted" id="subtituloVendas">Faturamento e volume de pedidos</small>
+                    </div>
+                    <span class="badge bg-light text-dark" id="badgeAgrupamento">Por dia</span>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="graficoVendas" aria-label="Gráfico de evolução das vendas" role="img"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-xl-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">Status dos pedidos</h5>
+                    <small class="text-muted">Distribuição no período</small>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container-sm">
+                        <canvas id="graficoStatus" aria-label="Gráfico de status dos pedidos" role="img"></canvas>
+                        <div class="chart-empty d-none" id="statusVazio">Sem pedidos no período.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-3">
+        <div class="col-12 col-xl-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-white d-flex flex-wrap justify-content-between align-items-center gap-2">
+                    <div>
+                        <h5 class="mb-0">Top produtos</h5>
+                        <small class="text-muted" id="subtituloProdutos">Ranking por quantidade</small>
+                    </div>
+                    <span class="badge bg-light text-dark" id="badgeProdutos">0 itens</span>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="graficoProdutos" aria-label="Gráfico de produtos mais vendidos" role="img"></canvas>
+                        <div class="chart-empty d-none" id="produtosVazio">Sem produtos vendidos no período.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-md-6 col-xl-3">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">Categorias</h5>
+                    <small class="text-muted">Receita por tipo de produto</small>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container-sm">
+                        <canvas id="graficoCategorias" aria-label="Gráfico de receita por categoria" role="img"></canvas>
+                        <div class="chart-empty d-none" id="categoriasVazio">Sem dados no período.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-md-6 col-xl-3">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">Tipo de entrega</h5>
+                    <small class="text-muted">Pedidos por modalidade</small>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container-sm">
+                        <canvas id="graficoEntregas" aria-label="Gráfico de pedidos por tipo de entrega" role="img"></canvas>
+                        <div class="chart-empty d-none" id="entregasVazio">Sem dados no período.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pedidos do período -->
+    <div class="card shadow-sm">
+        <div class="card-header bg-white d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <div>
+                <h5 class="mb-0">Pedidos do período</h5>
+                <small class="text-muted">Últimos pedidos conforme os filtros aplicados</small>
+            </div>
+            <span class="badge bg-light text-dark" id="badgePedidos">0 pedidos</span>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                <tr>
+                    <th class="ps-3">Pedido</th>
+                    <th>Cliente</th>
+                    <th>Status</th>
+                    <th>Entrega</th>
+                    <th class="text-end">Total</th>
+                    <th>Entrada</th>
+                    <th class="text-end pe-3">Itens</th>
+                </tr>
+                </thead>
+                <tbody id="tabelaPedidos">
+                <tr>
+                    <td colspan="7" class="text-center text-muted py-4">
+                        <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                        Carregando pedidos...
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="card-footer bg-white d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <span class="small text-muted" id="paginacaoInfo"></span>
+            <div class="btn-group btn-group-sm">
+                <button type="button" class="btn btn-outline-secondary" id="btnPaginaAnterior">
+                    <i class="bi bi-chevron-left"></i> Anterior
+                </button>
+                <button type="button" class="btn btn-outline-secondary" id="btnProximaPagina">
+                    Próxima <i class="bi bi-chevron-right"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script th:src="@{/plugins/chart.js/Chart.min.js}"></script>
+</div>
+
+</body>
+</html>

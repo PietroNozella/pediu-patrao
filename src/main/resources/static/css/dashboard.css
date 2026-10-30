@@ -1,0 +1,124 @@
+/* Estilos da página de dashboard */
+.dashboard .kpi-card {
+    border: 1px solid #e9ecef;
+    border-radius: 0.75rem;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.dashboard .kpi-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.08) !important;
+}
+
+.dashboard .kpi-label {
+    color: #6c757d;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.dashboard .kpi-icon {
+    font-size: 1.2rem;
+    line-height: 1;
+}
+
+.dashboard .kpi-value {
+    color: #212529;
+    font-size: 1.55rem;
+    font-weight: 700;
+    line-height: 1.2;
+    margin-top: 0.35rem;
+    overflow-wrap: anywhere;
+}
+
+.dashboard .kpi-extra {
+    font-size: 0.78rem;
+    min-height: 1.15rem;
+    margin-top: 0.35rem;
+}
+
+.dashboard .chart-container,
+.dashboard .chart-container-sm {
+    position: relative;
+    width: 100%;
+}
+
+.dashboard .chart-container {
+    height: 320px;
+}
+
+.dashboard .chart-container-sm {
+    height: 260px;
+}
+
+.dashboard .chart-empty {
+    align-items: center;
+    color: #6c757d;
+    display: flex;
+    font-size: 0.875rem;
+    inset: 0;
+    justify-content: center;
+    position: absolute;
+    text-align: center;
+}
+
+.dashboard .dashboard-progress {
+    height: 4px;
+}
+
+.dashboard .card-header {
+    border-bottom: 1px solid #f0f1f2;
+}
+
+.dashboard .card-header h5 {
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.dashboard .filter-card .form-label {
+    color: #495057;
+    font-size: 0.78rem;
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+}
+
+.dashboard .table thead th {
+    color: #6c757d;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.dashboard .table td {
+    font-size: 0.875rem;
+}
+
+.dashboard .pedido-id {
+    color: #6c757d;
+    font-family: SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    font-size: 0.75rem;
+}
+
+.dashboard .badge-entrega {
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+    color: #495057;
+    font-weight: 500;
+}
+
+@media (max-width: 575.98px) {
+    .dashboard .kpi-value {
+        font-size: 1.2rem;
+    }
+
+    .dashboard .chart-container {
+        height: 260px;
+    }
+
+    .dashboard .chart-container-sm {
+        height: 230px;
+    }
+}
