@@ -44,6 +44,7 @@ import java.time.temporal.ChronoUnit;
 import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -239,7 +240,9 @@ public class DashboardService {
         int pagina = normalizarPagina(page);
         int tamanho = normalizarTamanhoPagina(size);
 
-        Criteria criteria = Criteria.where("dataHoraEntrada").gte(periodo.from()).lt(periodo.to());
+        Criteria criteria = Criteria.where("dataHoraEntrada")
+                .gte(Date.from(periodo.from()))
+                .lt(Date.from(periodo.to()));
         if (statusNormalizado != null) {
             criteria = criteria.and("status").is(statusNormalizado.name());
         }
@@ -423,7 +426,8 @@ public class DashboardService {
     private Document matchPeriodo(Periodo periodo, StatusPedido status, TipoEntrega tipoEntrega,
                                   boolean excluirCancelados) {
         Document filtro = new Document("dataHoraEntrada",
-                new Document("$gte", periodo.from()).append("$lt", periodo.to()));
+                new Document("$gte", Date.from(periodo.from()))
+                        .append("$lt", Date.from(periodo.to())));
         if (status != null) {
             filtro.append("status", status.name());
         } else if (excluirCancelados) {
