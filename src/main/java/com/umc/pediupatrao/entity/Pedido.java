@@ -17,6 +17,7 @@ public class Pedido {
     private String clienteId;
     private String tipoPizza;
     private String status;
+    private String tipoEntrega;
     private int quantidade;
     private String sabor;
     private List<ItemPedido> itens;
@@ -62,6 +63,14 @@ public class Pedido {
 
     public void setStatus(String status) {
         this.status = status;
+    }
+
+    public String getTipoEntrega() {
+        return tipoEntrega;
+    }
+
+    public void setTipoEntrega(String tipoEntrega) {
+        this.tipoEntrega = tipoEntrega;
     }
 
     public int getQuantidade() {
