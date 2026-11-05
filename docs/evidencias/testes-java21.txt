@@ -1,0 +1,22 @@
+Execução: 04/11/2026 (America/Sao_Paulo)
+Ambiente: Docker, Java 21.0.12.1, Maven 3.9, MongoDB 7.0.43
+Escopo: suíte completa com DASHBOARD_TEST_MONGODB_URI configurada
+
+com.umc.pediupatrao.AuditoriaClienteTest: Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 2.985 s -- in com.umc.pediupatrao.AuditoriaClienteTest
+com.umc.pediupatrao.config.DataInitializerTest: Tests run: 5, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 1.728 s -- in com.umc.pediupatrao.config.DataInitializerTest
+com.umc.pediupatrao.config.MongoInitConfigTest: Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.480 s -- in com.umc.pediupatrao.config.MongoInitConfigTest
+com.umc.pediupatrao.DashboardControllerTest: Tests run: 5, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 8.335 s -- in com.umc.pediupatrao.DashboardControllerTest
+com.umc.pediupatrao.DashboardMathTest: Tests run: 7, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.019 s -- in com.umc.pediupatrao.DashboardMathTest
+com.umc.pediupatrao.DashboardMongoIntegrationTest: Tests run: 5, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 2.529 s -- in com.umc.pediupatrao.DashboardMongoIntegrationTest
+com.umc.pediupatrao.DashboardServiceValidationTest: Tests run: 8, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.227 s -- in com.umc.pediupatrao.DashboardServiceValidationTest
+com.umc.pediupatrao.DemoDataSeederTest: Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.018 s -- in com.umc.pediupatrao.DemoDataSeederTest
+com.umc.pediupatrao.PedidoDescontoCancelamentoTest: Tests run: 8, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.025 s -- in com.umc.pediupatrao.PedidoDescontoCancelamentoTest
+com.umc.pediupatrao.PedidoServiceTest: Tests run: 19, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.039 s -- in com.umc.pediupatrao.PedidoServiceTest
+com.umc.pediupatrao.PedidoStatusServiceTest: Tests run: 11, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.021 s -- in com.umc.pediupatrao.PedidoStatusServiceTest
+com.umc.pediupatrao.PerfilUsuarioTest: Tests run: 12, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.019 s -- in com.umc.pediupatrao.PerfilUsuarioTest
+com.umc.pediupatrao.SegurancaAutorizacaoTest: Tests run: 63, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 4.203 s -- in com.umc.pediupatrao.SegurancaAutorizacaoTest
+com.umc.pediupatrao.UsuarioDetailsServiceTest: Tests run: 6, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.026 s -- in com.umc.pediupatrao.UsuarioDetailsServiceTest
+com.umc.pediupatrao.UsuarioServiceTest: Tests run: 9, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.261 s -- in com.umc.pediupatrao.UsuarioServiceTest
+
+TOTAL: Tests run: 163, Failures: 0, Errors: 0, Skipped: 0
+BUILD SUCCESS

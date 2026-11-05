@@ -107,7 +107,7 @@ src/main/resources/
   static/       # css, js, images, plugins (Chart.js 2.9.4 local)
   application.properties
 src/test/java/  # PedidoService, desconto/cancelamento, status, segurança, auditoria, perfil, DataInitializer, dashboard
-docs/           # requisitos, API do dashboard, evidências de testes, roteiro do vídeo
+docs/           # requisitos, API do dashboard e evidências de testes
 ```
 
 ## Documentação
@@ -115,7 +115,21 @@ docs/           # requisitos, API do dashboard, evidências de testes, roteiro d
 - [`docs/requisitos.md`](docs/requisitos.md) — requisitos funcionais e não funcionais, regras de cálculo e decisões.
 - [`docs/api-dashboard.md`](docs/api-dashboard.md) — endpoints, parâmetros, exemplos de resposta e erros.
 - [`docs/evidencias-testes.md`](docs/evidencias-testes.md) — resultados da suíte, cobertura e checklist manual.
-- [`docs/roteiro-video.md`](docs/roteiro-video.md) — roteiro cronometrado para a demonstração em até 3 minutos.
+
+### Entrega da atividade e Gitflow
+
+| Entregável | Localização |
+| --- | --- |
+| Requisitos funcionais RF01–RF07 e não funcionais | [`docs/requisitos.md`](docs/requisitos.md) |
+| Endpoints, parâmetros, exemplos e erros | [`docs/api-dashboard.md`](docs/api-dashboard.md) |
+| Testes e evidências | [`docs/evidencias-testes.md`](docs/evidencias-testes.md) |
+| Dashboard integrado ao MongoDB | `/dashboard` e `/api/dashboard/**` |
+| Implementação da API em branch própria | `feature/dashboard-api` (commit `c4f3d17`) |
+| Integração e release | `develop`, `feature/dashboard-ui`, `feature/dashboard-docs`, `release/dashboard-1.0` e `main` |
+| Correções para a entrega | `fix/dashboard-entrega`, criada a partir de `develop` |
+| Apresentação de até 3 minutos | Gravação e publicação do vídeo pendentes |
+
+As branches e merges preservam a separação entre desenvolvimento, funcionalidades e release. Para consultar o histórico: `git log --graph --oneline --all`.
 
 ## Executar localmente
 
@@ -166,6 +180,7 @@ Para popular a base com clientes, produtos e cerca de 200 pedidos dos últimos 4
 
 ```powershell
 $env:MONGODB_URI="mongodb://localhost:27017/pizzaria"
+$env:MONGODB_DATABASE="pediupatrao_demo"
 .\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=demo"
 ```
 
@@ -177,6 +192,8 @@ O profile `demo` cria os usuários:
 | ATENDENTE | `atendente` | `atendente123` |
 
 O seed é idempotente para pedidos: se a coleção `pedidos` já tiver registros, nenhum pedido novo é criado. Os usuários de demonstração são criados apenas se ainda não existirem.
+
+Use um banco exclusivo para demonstração. As contas e os dados inseridos permanecem no banco após desativar o profile. O administrador configurado é criado antes das contas demo; se seu nome for `gerente` ou `atendente`, esse nome conserva o perfil `ADMIN` e a senha configurada.
 
 ### 3. Fluxo de demonstração
 
@@ -260,7 +277,14 @@ Exemplo cancelamento (gerente):
 # Windows: .\mvnw.cmd test
 ```
 
-A suíte atual tem **156 testes** e cobre regras de status, desconto e cancelamento, permissões por perfil, auditoria de clientes, inicialização do banco, cálculos e validações do dashboard, segurança da página/API e geração dos dados de demonstração.
+A suíte tem **163 testes**, incluindo cinco de integração que exigem `DASHBOARD_TEST_MONGODB_URI`. Sem essa variável, os cinco casos são ignorados e os outros 158 são executados. Use Java 21, a versão definida pelo projeto.
+
+```powershell
+$env:DASHBOARD_TEST_MONGODB_URI="mongodb://localhost:27017"
+.\mvnw.cmd test
+```
+
+Os testes de integração criam e removem bases aleatórias com prefixo `dashboard_test_`; não usam o banco indicado na URI. A execução cobre valores monetários em texto e BSON numérico, agregações reais, filtros, ranking, paginação e períodos vazios. Use uma instância local de testes.
 
 Evidências detalhadas: [`docs/evidencias-testes.md`](docs/evidencias-testes.md).
 

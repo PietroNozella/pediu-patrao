@@ -18,7 +18,7 @@ O objetivo é permitir que a gestão acompanhe o desempenho da operação sem pr
 - API REST própria do dashboard, consumida pelo frontend via HTTP (RF06).
 - Atualização dos dados, estados de carregamento, vazio e erro (RF07).
 - Controle de acesso por perfil.
-- Documentação da API, requisitos, evidências de teste e roteiro de demonstração.
+- Documentação da API, requisitos, evidências de teste e apresentação de demonstração.
 
 ### Fora do escopo
 
@@ -168,7 +168,7 @@ A autorização é aplicada no backend por `@PreAuthorize("hasAnyRole('ADMIN', '
 | RNF07 | Integridade dos dados | `tipoEntrega` validado por enum; `tipoProduto` gravado como snapshot no item; migração de pedidos legados; índices criados na inicialização. |
 | RNF08 | Privacidade | O dashboard expõe dados agregados e apenas nome/identificador do cliente para perfis gerenciais; não retorna senha, CPF ou dados de pagamento. |
 | RNF09 | Disponibilidade da informação | Atualização manual e automática a cada 60 segundos; nova tentativa em caso de erro; nenhum cache de resposta no frontend. |
-| RNF10 | Documentação | Requisitos, API, evidências de teste e roteiro de vídeo versionados em `docs/`. |
+| RNF10 | Documentação | Requisitos, API e evidências de teste versionados em `docs/`. |
 
 ## 6. Definições de cálculo
 
@@ -210,6 +210,7 @@ Todas as datas de referência usam o fuso `America/Sao_Paulo`. O período é apl
 4. **Chart.js 2.9.4 local:** a versão já presente no projeto foi mantida para evitar dependência de CDN e preservar compatibilidade com os plugins existentes.
 5. **Erros padronizados:** `ProblemDetail` é usado para erros de validação e execução do dashboard; `401` é emitido pelo Spring Security antes do controller.
 6. **Dados de demonstração:** o profile `demo` cria usuários, clientes, produtos e pedidos realistas para viabilizar a apresentação e a inspeção manual.
+7. **Compatibilidade monetária:** os pipelines convertem valores para decimal antes das somas. Isso permite consultar os valores `BigDecimal` persistidos como texto pelo Spring Data 4.4 e documentos com tipos numéricos BSON, sem migração ou alteração dos registros existentes.
 
 ## 9. Critérios de aceite consolidados
 
@@ -223,7 +224,7 @@ Todas as datas de referência usam o fuso `America/Sao_Paulo`. O período é apl
 - [x] Erros de validação retornam `ProblemDetail` com `400`.
 - [x] Atualização manual e automática estão disponíveis.
 - [x] Testes automatizados cobrem cálculos, validações, segurança, controller e dados de demonstração.
-- [x] Documentação e roteiro de vídeo foram adicionados.
+- [x] Documentação de requisitos, API e evidências de teste foi adicionada.
 
 ## 10. Riscos e limitações
 
@@ -232,3 +233,4 @@ Todas as datas de referência usam o fuso `America/Sao_Paulo`. O período é apl
 - **Fuso horário:** o backend usa `America/Sao_Paulo`; o frontend envia datas sem horário, portanto o recorte é sempre por dia local da operação.
 - **Tempo médio:** considera qualquer pedido com `dataHoraSaida`, não apenas `FINALIZADO`; o rótulo da interface explicita “Entrada até a saída”.
 - **Demonstração local:** a execução completa depende de uma instância MongoDB acessível.
+- **Banco demo:** execute o profile em uma base exclusiva. Desativá-lo ou reverter o código não remove contas nem pedidos inseridos. O administrador configurado tem prioridade sobre nomes coincidentes de usuários demo.
