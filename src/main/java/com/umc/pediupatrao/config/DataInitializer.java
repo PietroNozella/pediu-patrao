@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.annotation.Order;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 @Configuration
@@ -18,6 +19,7 @@ public class DataInitializer {
     private String adminPassword;
 
     @Bean
+    @Order(1)
     CommandLineRunner initDatabase(UsuarioRepository repo, PasswordEncoder encoder) {
         return args -> {
             repo.findAll().stream()

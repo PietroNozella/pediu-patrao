@@ -1,18 +1,27 @@
 package com.umc.pediupatrao.config;
 
 import com.umc.pediupatrao.entity.Usuario;
+import com.umc.pediupatrao.repository.ClienteRepository;
+import com.umc.pediupatrao.repository.PedidoRepository;
+import com.umc.pediupatrao.repository.ProdutoRepository;
 import com.umc.pediupatrao.repository.UsuarioRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.boot.CommandLineRunner;
+import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.HashMap;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
@@ -85,5 +94,39 @@ class DataInitializerTest {
         assertEquals("admin", captor.getValue().getUsername());
         assertEquals("ADMIN", captor.getValue().getRole());
         assertEquals("HASH", captor.getValue().getPassword());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"gerente", "atendente"})
+    void adminConfiguradoPrecedeUsuariosDemo(String username) {
+        Map<String, Usuario> usuarios = new HashMap<>();
+        when(repo.findAll()).thenAnswer(invocacao -> new ArrayList<>(usuarios.values()));
+        when(repo.findByUsername(any())).thenAnswer(invocacao -> Optional.ofNullable(usuarios.get(invocacao.getArgument(0))));
+        when(repo.save(any())).thenAnswer(invocacao -> {
+            Usuario usuario = invocacao.getArgument(0);
+            usuarios.put(usuario.getUsername(), usuario);
+            return usuario;
+        });
+        when(encoder.encode(any())).thenAnswer(invocacao -> "hash:" + invocacao.getArgument(0));
+        PedidoRepository pedidos = mock(PedidoRepository.class);
+        when(pedidos.count()).thenReturn(1L);
+
+        new ApplicationContextRunner()
+                .withInitializer(context -> context.getEnvironment().setActiveProfiles("demo"))
+                .withPropertyValues("app.admin.username=" + username, "app.admin.password=senha-configurada")
+                .withUserConfiguration(DataInitializer.class, DemoDataSeeder.class)
+                .withBean(UsuarioRepository.class, () -> repo)
+                .withBean(PasswordEncoder.class, () -> encoder)
+                .withBean(PedidoRepository.class, () -> pedidos)
+                .withBean(ClienteRepository.class, () -> mock(ClienteRepository.class))
+                .withBean(ProdutoRepository.class, () -> mock(ProdutoRepository.class))
+                .run(context -> {
+                    for (CommandLineRunner runner : context.getBeanProvider(CommandLineRunner.class).orderedStream().toList()) {
+                        runner.run();
+                    }
+                    assertEquals("ADMIN", usuarios.get(username).getRole());
+                    assertEquals("hash:senha-configurada", usuarios.get(username).getPassword());
+                    assertEquals(2, usuarios.size());
+                });
     }
 }

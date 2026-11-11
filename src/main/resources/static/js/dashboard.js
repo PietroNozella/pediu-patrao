@@ -141,15 +141,13 @@
 
         $('btnPaginaAnterior').addEventListener('click', function () {
             if (estado.pagina > 0) {
-                estado.pagina -= 1;
-                carregarPedidos();
+                carregarPedidos(estado.pagina - 1);
             }
         });
 
         $('btnProximaPagina').addEventListener('click', function () {
             if (estado.pagina + 1 < estado.totalPaginas) {
-                estado.pagina += 1;
-                carregarPedidos();
+                carregarPedidos(estado.pagina + 1);
             }
         });
     }
@@ -279,7 +277,7 @@
         }
     }
 
-    async function carregarPedidos() {
+    async function carregarPedidos(pagina) {
         if (estado.carregando || !estado.filtros) {
             return;
         }
@@ -287,7 +285,7 @@
         definirCarregando(true, true);
         $('paginacaoInfo').textContent = 'Carregando pedidos...';
         try {
-            const dados = await buscarJson(urlPedidos(estado.filtros));
+            const dados = await buscarJson(urlPedidos(estado.filtros, pagina));
             renderPedidos(dados);
             marcarAtualizacao();
         } catch (erro) {
@@ -320,11 +318,11 @@
         return API + '/produtos?' + params.toString();
     }
 
-    function urlPedidos(filtros) {
+    function urlPedidos(filtros, pagina = estado.pagina) {
         const params = parametrosBase(filtros);
         adicionarSePreenchido(params, 'status', filtros.status);
         adicionarSePreenchido(params, 'tipoEntrega', filtros.tipoEntrega);
-        params.set('page', String(estado.pagina));
+        params.set('page', String(pagina));
         params.set('size', String(TAMANHO_PAGINA));
         return API + '/pedidos?' + params.toString();
     }
@@ -390,6 +388,8 @@
         document.querySelectorAll('.btn-periodo').forEach(function (botao) {
             botao.disabled = ativo;
         });
+        $('btnPaginaAnterior').disabled = ativo || estado.pagina <= 0;
+        $('btnProximaPagina').disabled = ativo || estado.pagina + 1 >= estado.totalPaginas;
     }
 
     function mostrarErro(mensagem) {
@@ -791,6 +791,7 @@
         const totalElementos = numero(pagina.totalElements);
         const totalPaginas = numero(pagina.totalPages);
 
+        estado.pagina = numero(pagina.page);
         estado.totalPaginas = totalPaginas;
         $('badgePedidos').textContent = formatoNumero.format(totalElementos) + ' pedido(s)';
         $('paginacaoInfo').textContent = totalElementos === 0

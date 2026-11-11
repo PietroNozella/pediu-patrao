@@ -143,7 +143,7 @@ public class DashboardService {
                         .append("pedidos", new Document("$sum", 1))
                         .append("faturamento", new Document("$sum",
                                 cond(eq("$status", StatusPedido.FINALIZADO.name()),
-                                        ifNull("$valorTotal", 0), 0)))),
+                                        valorMonetario("$valorTotal"), 0)))),
                 new Document("$sort", new Document("_id", 1)));
 
         Map<LocalDate, DiaVenda> porDia = new HashMap<>();
@@ -187,7 +187,7 @@ public class DashboardService {
                 new Document("id", ifNull("$itens.produtoId", "$itens.nomeProduto"))
                         .append("nome", ifNull("$itens.nomeProduto", "Produto removido")))
                 .append("quantidade", new Document("$sum", ifNull("$itens.quantidade", 0)))
-                .append("receita", new Document("$sum", ifNull("$itens.subtotal", 0))));
+                .append("receita", new Document("$sum", valorMonetario("$itens.subtotal"))));
 
         Document facet = new Document("$facet",
                 new Document("ranking", List.of(
@@ -199,7 +199,7 @@ public class DashboardService {
                                         .append("quantidadeTotal",
                                                 new Document("$sum", ifNull("$itens.quantidade", 0)))
                                         .append("receitaTotal",
-                                                new Document("$sum", ifNull("$itens.subtotal", 0)))))));
+                                                new Document("$sum", valorMonetario("$itens.subtotal")))))));
 
         estagios.add(facet);
         Document resultado = agregarUnico(estagios.toArray(Document[]::new));
@@ -316,10 +316,10 @@ public class DashboardService {
                                 1, 0)))
                 .append("faturamento", new Document("$sum",
                         cond(eq("$status", StatusPedido.FINALIZADO.name()),
-                                ifNull("$valorTotal", 0), 0)))
+                                valorMonetario("$valorTotal"), 0)))
                 .append("descontos", new Document("$sum",
                         cond(ne("$status", StatusPedido.CANCELADO.name()),
-                                ifNull("$valorDesconto", 0), 0)))
+                                valorMonetario("$valorDesconto"), 0)))
                 .append("tempoMedioMinutos", new Document("$avg",
                         new Document("$divide", List.of(
                                 new Document("$subtract", List.of(
@@ -343,7 +343,7 @@ public class DashboardService {
                 new Document("$group", new Document("_id",
                         ifNull("$itens.tipoProduto", "Nao informado"))
                         .append("quantidade", new Document("$sum", ifNull("$itens.quantidade", 0)))
-                        .append("receita", new Document("$sum", ifNull("$itens.subtotal", 0)))),
+                        .append("receita", new Document("$sum", valorMonetario("$itens.subtotal")))),
                 new Document("$sort", new Document("receita", -1)));
 
         return docs.stream()
@@ -363,7 +363,7 @@ public class DashboardService {
                         .append("pedidos", new Document("$sum", 1))
                         .append("faturamento", new Document("$sum",
                                 cond(eq("$status", StatusPedido.FINALIZADO.name()),
-                                        ifNull("$valorTotal", 0), 0)))),
+                                        valorMonetario("$valorTotal"), 0)))),
                 new Document("$sort", new Document("pedidos", -1)));
 
         return docs.stream()
@@ -625,6 +625,13 @@ public class DashboardService {
 
     private static Document ifNull(String campo, Object alternativa) {
         return new Document("$ifNull", List.of(campo, alternativa));
+    }
+
+    private static Document valorMonetario(String campo) {
+        // Spring Data 4.4 grava BigDecimal como String; aceita também valores BSON numéricos.
+        return new Document("$convert", new Document("input", campo)
+                .append("to", "decimal")
+                .append("onNull", 0));
     }
 
     private static long toLong(Object valor) {
