@@ -393,6 +393,7 @@ GET /api/dashboard/produtos?limit=0
 - **Comparação:** período anterior de mesma quantidade de dias; se a base anterior for zero, a variação é `null`.
 - **Tempo médio:** média entre `dataHoraEntrada` e `dataHoraSaida` dos pedidos com saída registrada.
 - **Participação:** calculada sobre o total do período filtrado.
+- **Valores monetários:** convertidos para decimal antes das somas no MongoDB. A consulta aceita o formato texto gravado pelo Spring Data 4.4 e valores BSON numéricos, sem modificar documentos existentes. Campos ausentes/nulos valem zero; texto monetário inválido gera erro interno, em vez de um total silenciosamente incorreto.
 
 ## 7. Exemplos adicionais
 

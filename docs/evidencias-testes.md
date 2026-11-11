@@ -1,217 +1,103 @@
-# Evidências de Testes — Dashboard
+# Evidências de testes — Dashboard
 
-## 1. Ambiente de execução
+Validação realizada em 04/11/2026, na branch `fix/dashboard-entrega`, com Java 21.0.12.1, Spring Boot 3.4.4, MongoDB 7.0.43 e Chrome automatizado pelo Playwright CLI. A aplicação e o banco rodaram em containers locais separados dos outros projetos.
 
-| Item | Valor |
-| --- | --- |
-| Data da execução | 30/10/2026 |
-| Sistema | Windows |
-| Java em execução | 22.0.1 (projeto compilado com `--release 21`) |
-| Build | Maven Wrapper (`mvnw.cmd`) |
-| Spring Boot | 3.4.4 |
-| Banco para testes automatizados | Mocks (sem MongoDB real) |
+## 1. Suíte Java e integração com MongoDB
 
-## 2. Resultado da suíte completa
-
-Comando executado na raiz do projeto:
-
-```powershell
-.\mvnw.cmd test
-```
-
-Resultado:
+Resultado da suíte completa:
 
 ```text
-[INFO] Tests run: 156, Failures: 0, Errors: 0, Skipped: 0
-[INFO] BUILD SUCCESS
+Tests run: 163, Failures: 0, Errors: 0, Skipped: 0
+BUILD SUCCESS
 ```
 
-- **156 testes executados**
-- **0 falhas**
-- **0 erros**
-- **0 testes ignorados**
+[Resumo por classe](evidencias/testes-java21.txt).
 
-A suíte completa inclui os testes já existentes de pedidos, status, descontos, cancelamentos, auditoria, perfis e segurança, além dos testes novos do dashboard. Nenhuma regressão foi identificada.
+| Verificação adicionada | Resultado |
+| --- | --- |
+| Soma de valores monetários em String, Decimal128 e tipos numéricos BSON | Passou |
+| Faturamento, descontos, ticket médio, cancelamentos e comparação anterior | Passou |
+| Série diária/semanal/mensal, categorias e tipos de entrega | Passou |
+| Ranking ordenado por receita e participação percentual | Passou |
+| Filtros, paginação e nome do cliente com banco real | Passou |
+| Período vazio com indicadores zero e série contínua | Passou |
+| Administrador configurado como `gerente` ou `atendente` antes do seed demo | Passou, nos dois casos |
 
-## 3. Testes específicos do dashboard
+Os cinco casos de `DashboardMongoIntegrationTest` executam pipelines no MongoDB real. Cada caso cria uma base aleatória `dashboard_test_*`, insere dados conhecidos e remove somente essa base ao terminar. Os testes de inicialização usam o contexto Spring e repositórios mockados para verificar a ordem efetiva dos runners.
 
-| Classe | Testes | Cobertura principal |
-| --- | ---: | --- |
-| `DashboardMathTest` | 7 | Ticket médio, percentuais, variação, arredondamento e divisão por zero. |
-| `DashboardServiceValidationTest` | 8 | Período invertido, período > 366 dias, agrupamento, limite, status, tipo de entrega, página e tamanho de página inválidos. |
-| `DashboardControllerTest` | 5 | Acesso `ADMIN`/`GERENTE`, bloqueio de `ATENDENTE`, `401` anônimo e `ProblemDetail` em erro de validação. |
-| `SegurancaAutorizacaoTest` | 63 (4 do dashboard) | Página `/dashboard`: redirecionamento ao login, `403` para atendente e `200` para gerente/admin. |
-| `DemoDataSeederTest` | 1 | Geração de pedidos com `tipoEntrega`, snapshot `tipoProduto`, status finalizado/cancelado e data de entrada. |
-| **Total relacionado ao dashboard** | **25** | Inclui os 4 casos de página dentro da suíte de segurança. |
-
-### 3.1 Cálculos (`DashboardMathTest`)
-
-Casos verificados:
-
-- Ticket médio com duas casas decimais.
-- Ticket médio zero quando não há pedidos finalizados.
-- Percentual simples e percentual sem total.
-- Variação percentual positiva.
-- Variação nula quando a base anterior é zero ou nula.
-- Arredondamento `HALF_UP` e tratamento de valores nulos.
-
-### 3.2 Validações (`DashboardServiceValidationTest`)
-
-Casos verificados:
-
-- `inicio` posterior a `fim` → `400`.
-- Período maior que 366 dias → `400`.
-- `agrupamento` inválido → `400`.
-- `limit` fora de 1–50 → `400`.
-- `status` inválido → `400`.
-- `tipoEntrega` inválido → `400`.
-- `page` negativa → `400`.
-- `size` fora de 1–100 → `400`.
-
-Em todos os casos, o teste confirma que o `MongoTemplate` não é chamado antes da validação (`verifyNoInteractions`).
-
-### 3.3 Segurança e erros (`DashboardControllerTest`)
-
-| Teste | Cenário | Resultado esperado | Resultado |
-| --- | --- | --- | --- |
-| `gerenteAcessaResumo` | `GERENTE` em `/api/dashboard/resumo` | `200` | ✅ |
-| `adminAcessaResumo` | `ADMIN` em `/api/dashboard/resumo` | `200` | ✅ |
-| `atendenteRecebeAcessoNegado` | `ATENDENTE` em `/api/dashboard/resumo` | `403` | ✅ |
-| `usuarioAnonimoRecebeNaoAutenticado` | Sem sessão em `/api/dashboard/resumo` | `401` | ✅ |
-| `erroDeValidacaoRetornaProblemDetail` | Erro de período | `400` com `title` e `detail` | ✅ |
-
-Exemplo de resposta validada:
-
-```json
-{
-  "status": 400,
-  "title": "Parametro invalido",
-  "detail": "inicio deve ser anterior ou igual a fim"
-}
-```
-
-### 3.4 Página e menu (`SegurancaAutorizacaoTest`)
-
-| Teste | Cenário | Resultado |
-| --- | --- | --- |
-| `naoAutenticadoNaoAcessaDashboard` | `GET /dashboard` sem sessão | `302` para `/login` |
-| `atendenteNaoAcessaDashboard` | `GET /dashboard` como `ATENDENTE` | `403` |
-| `gerenteAcessaDashboard` | `GET /dashboard` como `GERENTE` | `200` + conteúdo “Evolução das vendas” + `/js/dashboard.js` |
-| `adminAcessaDashboard` | `GET /dashboard` como `ADMIN` | `200` + conteúdo “Top produtos” |
-
-### 3.5 Dados de demonstração (`DemoDataSeederTest`)
-
-O teste executa o seeder com repositórios mockados e verifica:
-
-- Lista de pedidos não vazia.
-- Todos os pedidos possuem `tipoEntrega`.
-- Todos os itens possuem `tipoProduto`.
-- Existem pedidos `FINALIZADO` e `CANCELADO`.
-- Todos os pedidos possuem `dataHoraEntrada`.
-
-## 4. Evidência de compilação
+### Reprodução com Java 21 e MongoDB local
 
 ```powershell
-.\mvnw.cmd -q -DskipTests compile
-```
-
-Resultado: conclusão sem erros.
-
-## 5. Cobertura funcional dos requisitos
-
-| Requisito | Evidência automatizada | Evidência manual pendente |
-| --- | --- | --- |
-| RF01 — KPIs | `DashboardControllerTest`, `DashboardMathTest` | Conferir valores com dados do profile `demo`. |
-| RF02 — Gráficos | Renderização da página e endpoints de vendas | Inspeção visual dos gráficos no navegador. |
-| RF03 — Status | `porStatus` no resumo e filtros de status | Conferir doughnut e badges da tabela. |
-| RF04 — Top produtos | Endpoint `/produtos` e `DashboardServiceValidationTest` | Conferir ranking e tooltips. |
-| RF05 — Filtros | Validações de parâmetros e página renderizada | Testar cada filtro na interface. |
-| RF06 — API | `DashboardControllerTest` e documentação da API | Chamadas reais com sessão. |
-| RF07 — Atualização/erros | `ProblemDetail`, estados da UI e teste de erro | Simular queda de rede e refresh automático. |
-| Acesso restrito | `DashboardControllerTest` e `SegurancaAutorizacaoTest` | Repetir com os três perfis. |
-
-## 6. Roteiro de verificação manual
-
-> A verificação manual abaixo depende de uma instância MongoDB acessível. No ambiente usado para desenvolver esta entrega não havia MongoDB, Docker ou `MONGODB_URI` configurado; por isso a validação visual e das agregações em runtime não foi executada nesta máquina.
-
-### 6.1 Subir a aplicação com dados de demonstração
-
-```powershell
-$env:MONGODB_URI="mongodb://localhost:27017/pizzaria"
-.\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=demo"
-```
-
-O profile `demo` cria:
-
-- Usuários: `gerente` / `gerente123` e `atendente` / `atendente123`.
-- 8 clientes, 12 produtos e cerca de 200 pedidos nos últimos 45 dias.
-- Pedidos com `ENTREGA`, `RETIRADA` e `BALCAO`, status variados, descontos e cancelamentos.
-
-O usuário `admin` continua sendo criado pelo `DataInitializer` com `admin` / `teste123` (ou variáveis `APP_ADMIN_*`).
-
-### 6.2 Checklist
-
-- [ ] Login como `gerente` e acesso a `/dashboard`.
-- [ ] KPIs de faturamento, pedidos, ticket médio, cancelamentos, andamento, tempo médio, descontos e finalizados coerentes com o período.
-- [ ] Gráfico de evolução com barras de faturamento e linha de pedidos.
-- [ ] Alternância de agrupamento entre dia, semana e mês.
-- [ ] Filtro por status e por tipo de entrega.
-- [ ] Ranking Top 5/10/20 por quantidade e por receita.
-- [ ] Gráficos de status, categorias e tipos de entrega.
-- [ ] Tabela paginada, botões anterior/próxima e informação de total.
-- [ ] Botão **Atualizar** mantém filtros e página.
-- [ ] Atualização automática de 60s.
-- [ ] Erro de rede exibe alerta e **Tentar novamente**.
-- [ ] Período inválido exibe mensagem do backend.
-- [ ] Layout responsivo em largura mobile.
-- [ ] Login como `atendente`: link do menu oculto e acesso direto a `/dashboard` retorna `403`.
-- [ ] Sem sessão: `/dashboard` redireciona ao login e `/api/dashboard/resumo` retorna `401`.
-
-### 6.3 Verificação rápida das regras no MongoDB
-
-Exemplo de conferência do faturamento do período (Mongo shell):
-
-```javascript
-db.pedidos.aggregate([
-  {
-    $match: {
-      dataHoraEntrada: {
-        $gte: ISODate("2026-10-01T03:00:00Z"),
-        $lt: ISODate("2026-10-31T03:00:00Z")
-      },
-      status: "FINALIZADO"
-    }
-  },
-  {
-    $group: {
-      _id: null,
-      faturamento: { $sum: "$valorTotal" },
-      finalizados: { $sum: 1 }
-    }
-  }
-])
-```
-
-> O intervalo em UTC acima corresponde a `2026-10-01 00:00` até `2026-10-30 23:59:59` em `America/Sao_Paulo` (offset `-03:00`). A API calcula esse intervalo automaticamente.
-
-## 7. Limitações desta execução
-
-- Não havia MongoDB local, Docker ou `MONGODB_URI` no ambiente, então as agregações não foram executadas contra uma base real nesta máquina.
-- A página foi validada por testes `@WebMvcTest` (renderização do fragmento, autorização e presença dos scripts), não por inspeção visual em navegador.
-- Os testes de cálculo usam `DashboardMath`; os pipelines de agregação são exercitados apenas em runtime com MongoDB.
-- Recomenda-se executar o checklist da seção 6 antes da entrega final e gravar o vídeo com o profile `demo`.
-
-## 8. Como reproduzir
-
-```powershell
-# Suíte completa
+$env:DASHBOARD_TEST_MONGODB_URI="mongodb://localhost:27017"
 .\mvnw.cmd test
-
-# Apenas dashboard
-.\mvnw.cmd "-Dtest=DashboardMathTest,DashboardServiceValidationTest,DashboardControllerTest,DemoDataSeederTest" test
-
-# Apenas segurança da página/API
-.\mvnw.cmd "-Dtest=SegurancaAutorizacaoTest" test
 ```
 
-No Linux/macOS, substitua `.\mvnw.cmd` por `./mvnw`.
+Sem `DASHBOARD_TEST_MONGODB_URI`, os cinco testes de integração são ignorados: ficam 158 testes executados e cinco ignorados. Use instância local dedicada a testes; a conta precisa criar e remover as bases descartáveis.
+
+### Comando usado nesta validação
+
+Com MongoDB já iniciado no container `pediu-patrao-entrega-mongo`, o container Maven compartilhou sua rede. Os caminhos dos volumes abaixo correspondem à máquina de validação:
+
+```powershell
+docker run --rm --network container:pediu-patrao-entrega-mongo `
+  --mount type=bind,source=D:/Projetos/Estudos/pediu-patrao,target=/workspace `
+  --mount type=bind,source=C:/Users/Micro/.m2,target=/root/.m2 `
+  --workdir /workspace `
+  -e DASHBOARD_TEST_MONGODB_URI=mongodb://localhost:27017 `
+  maven:3.9-eclipse-temurin-21 mvn -o -B test
+```
+
+`-o` usa as dependências que já estavam no cache; em outro ambiente, remova essa opção se for necessário baixá-las.
+
+## 2. Fluxo real no navegador
+
+Aplicação em `http://localhost:8083`, Java 21, profile `demo`, base exclusiva `pediupatrao_entrega_demo` com 210 pedidos. O script [verificar-dashboard.js](../scripts/verificar-dashboard.js) concluiu com código de saída 0 e 11 cenários aprovados:
+
+| Cenário | Requisito | Resultado |
+| --- | --- | --- |
+| Gerente acessa indicadores e cinco gráficos Chart.js renderizados | RF01/RF02 | Passou |
+| Cinco endpoints reais retornam JSON; faturamento, ticket e receitas positivos | RF06 | Passou |
+| Período invertido retorna `400` com `ProblemDetail` | RF05/RF07 | Passou |
+| Atalho de 7 dias, semana, status, entrega e ranking por receita | RF03/RF04/RF05 | Passou |
+| Repetir clique em Próxima com resposta retida não pula páginas | RF03 | Passou |
+| Falha de rede preserva tabela; nova tentativa recupera e mantém a página | RF07 | Passou |
+| Atualização automática dispara após avanço controlado de 60 segundos | RF07 | Passou |
+| Capturas em 1440×1000 e 390×844 | Interface | Passou |
+| Visitante recebe `401` na API e login na página | Acesso | Passou |
+| Atendente recebe `403` na API e na página | Acesso | Passou |
+| Administrador recebe `200` na API e na página | Acesso | Passou |
+
+O teste de rede aborta deliberadamente as quatro requisições do dashboard, gerando quatro erros `net::ERR_FAILED` esperados no console. Não são falhas da execução.
+
+### Reprodução do E2E
+
+Pré-requisitos: aplicação com profile `demo`, contas padrão de demonstração e Playwright CLI instalado. Esse roteiro é exclusivo para a base demo, pois usa suas credenciais públicas.
+
+```powershell
+playwright-cli -s=pediupatrao-entrega open http://localhost:8083/login --browser chrome
+playwright-cli -s=pediupatrao-entrega snapshot
+playwright-cli -s=pediupatrao-entrega run-code --filename scripts/verificar-dashboard.js
+playwright-cli -s=pediupatrao-entrega close
+```
+
+Use uma sessão nova do navegador para cada execução; o teste controla o relógio da página para verificar a atualização automática sem aguardar um minuto real.
+
+### Capturas da execução
+
+- [Dashboard desktop](../output/playwright/dashboard-desktop.png).
+- [Dashboard mobile](../output/playwright/dashboard-mobile.png).
+
+## 3. Falhas iniciais e limites
+
+- A tentativa inicial no Java 25 do Windows falhou: o Byte Buddy instalado suporta oficialmente até Java 24. A suíte foi executada novamente no Java 21 definido pelo projeto, com sucesso, sem trocar dependências nem habilitar opções experimentais.
+- O roteiro E2E precisou de ajustes no ambiente do CLI (`URL` indisponível no contexto do script e seletor de botão com ícone). A versão final completou todos os cenários.
+- `node --check` aprovou o JavaScript do dashboard. `git diff --check` não apontou erros de whitespace.
+- O E2E cobre Chrome e dois tamanhos de tela; não equivale a uma auditoria de acessibilidade ou teste em todos os navegadores.
+- O build de release não foi executado separadamente; a suíte Maven compilou o código e os testes.
+- A gravação e a publicação do vídeo de até 3 minutos ainda precisam ser realizadas.
+
+## 4. Recuperação e dados existentes
+
+As correções monetárias atuam nas consultas e não migram documentos. Valores numéricos e texto válido são aceitos, nulos/ausentes contam como zero. Texto monetário inválido provoca erro, em vez de ser descartado silenciosamente.
+
+A prioridade do administrador corrige novos boots, mas não transforma contas demo já persistidas em administradores. Se a colisão ocorreu anteriormente, recupere a conta explicitamente. Desativar o profile ou reverter código não remove contas nem pedidos demo; mantenha uma base exclusiva para apresentação.
